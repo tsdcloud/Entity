@@ -1,0 +1,6 @@
+# ignore all files in migrations folders
+*/migrations/
+
+.git/
+
+.gitignore
