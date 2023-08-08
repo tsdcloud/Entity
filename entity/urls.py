@@ -16,8 +16,12 @@ Including another URLconf
 #from django.contrib import admin
 from django.urls import path,include
 
+from firm import views as fviews
+
 from common.router import OptionalSlashRouter
+
 router = OptionalSlashRouter()
+router.register(r'firm', fviews.FirmViewSet, basename='firm')
 
 urlpatterns = [
     #path('admin/', admin.site.urls),
