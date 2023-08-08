@@ -5,19 +5,21 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from firm.serializers import FirmStoreSerializer
+from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 
 from firm.models import Firm
 from branch.models import Branch
 
 from common.permissions import IsDeactivate
-from . permissions import IsAddFirm, IsViewAllFirm
+from . permissions import IsAddFirm, IsViewAllFirm, IsViewDetailFirm
 
 class FirmViewSet(viewsets.ModelViewSet):
     """ firm controller """
 
     def get_serializer_class(self):
         """ define serializer """
+        if self.action == 'retrieve':
+            return FirmDetailSerializer
         return FirmStoreSerializer
         #return super().get_serializer_class()
 
@@ -27,8 +29,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsAddFirm]
         elif self.action == 'list':
             self.permission_classes = [IsViewAllFirm]
-        #elif self.action == 'partial_update':
-        #    self.permission_classes = [IsDeactivate]
+        elif self.action == 'retrieve':
+            self.permission_classes = [IsViewDetailFirm]
         #elif self.action == 'destroy':
          #   self.permission_classes = [IsDeactivate]
         else:

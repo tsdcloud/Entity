@@ -69,3 +69,11 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
         except Exception:
             raise serializers.ValidationError('logo is not valid base64 image')
         return value
+
+class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
+    """ logical validataion for add entity """
+
+    class Meta:
+        """ attributs serialized """
+        model = Firm
+        fields = '__all__'
