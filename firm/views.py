@@ -11,7 +11,7 @@ from firm.models import Firm
 from branch.models import Branch
 
 from common.permissions import IsDeactivate
-from . permissions import IsAddFirm
+from . permissions import IsAddFirm, IsViewAllFirm
 
 class FirmViewSet(viewsets.ModelViewSet):
     """ firm controller """
@@ -25,8 +25,8 @@ class FirmViewSet(viewsets.ModelViewSet):
         """ define permissions """
         if self.action == 'create':
             self.permission_classes = [IsAddFirm]
-        #elif self.action == 'list':
-            #self.permission_classes = [IsViewAllProfil],is_superuser
+        elif self.action == 'list':
+            self.permission_classes = [IsViewAllFirm]
         #elif self.action == 'partial_update':
         #    self.permission_classes = [IsDeactivate]
         #elif self.action == 'destroy':
