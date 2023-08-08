@@ -28,7 +28,8 @@ class Firm(models.Model):
     def __str__(self):
         """ name in the administration """
         return self.social_raison + "(" + self.sigle + ")"
-
+    
+    @staticmethod
     def create(social_raison: str, sigle: str, niu: str, principal_activity: str, regime: str, tax_reporting_center: str, trade_register: str, logo: str, type_person: int, user:str):
         """ add entity """
         firm = Firm()
@@ -74,8 +75,46 @@ class Firm(models.Model):
             return firm
         except DatabaseError:
             return None
-        
-    create = staticmethod(create)
+    
+    def change(self, social_raison: str, sigle: str, niu: str, principal_activity: str, regime: str, tax_reporting_center: str, trade_register: str, logo: str, type_person: int, user:str):
+        """ change entity """
+        self.social_raison = social_raison.upper()
+        self.sigle = sigle.upper()
+        self.niu = niu.upper()
+        self.principal_activity = principal_activity.upper()
+        self.regime = regime
+        self.tax_reporting_center = tax_reporting_center.upper()
+        self.trade_register = trade_register.upper()
+        self.logo = logo
+        self.type_person = type_person
+
+        hfirm = HFirm()
+
+        try:
+            with transaction.atomic():
+                self.save()
+
+                hfirm.firm = self
+                hfirm.uuid = self.uuid 
+                hfirm.social_raison = self.social_raison 
+                hfirm.sigle = self.sigle 
+                hfirm.niu = self.niu 
+                hfirm.principal_activity = self.principal_activity 
+                hfirm.regime = self.regime
+                hfirm.tax_reporting_center = self.tax_reporting_center 
+                hfirm.trade_register = self.trade_register 
+                hfirm.logo = self.logo 
+                hfirm.type_person = self.type_person 
+                hfirm.active = self.active 
+                hfirm.date = self.date 
+                hfirm.operation =  2
+                hfirm.user = user
+
+                hfirm.save()
+                
+            return self
+        except DatabaseError:
+            return None
 
     @classmethod
     def readByToken(cls,token:str):

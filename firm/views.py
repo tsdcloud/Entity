@@ -11,14 +11,14 @@ from firm.models import Firm
 from branch.models import Branch
 
 from common.permissions import IsDeactivate
-from . permissions import IsAddFirm, IsViewAllFirm, IsViewDetailFirm
+from . permissions import IsAddFirm, IsViewAllFirm, IsViewDetailFirm, IsChangeFirm
 
 class FirmViewSet(viewsets.ModelViewSet):
     """ firm controller """
 
     def get_serializer_class(self):
         """ define serializer """
-        if self.action == 'retrieve':
+        if self.action in ['retrieve','update']:
             return FirmDetailSerializer
         return FirmStoreSerializer
         #return super().get_serializer_class()
@@ -31,6 +31,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsViewAllFirm]
         elif self.action == 'retrieve':
             self.permission_classes = [IsViewDetailFirm]
+        elif self.action == 'update':
+            self.permission_classes = [IsChangeFirm]
         #elif self.action == 'destroy':
          #   self.permission_classes = [IsDeactivate]
         else:
@@ -77,5 +79,25 @@ class FirmViewSet(viewsets.ModelViewSet):
                 firm = None
             
             return Response(FirmStoreSerializer(firm).data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    
+    def update(self, request,pk):
+        firm = self.get_object()
+        serializer = FirmDetailSerializer(data=request.data, context={"request":request, "firm":firm})
+        if serializer.is_valid():
+            firm.change(
+                social_raison=serializer.validated_data['social_raison'],
+                sigle=serializer.validated_data['sigle'],
+                niu=serializer.validated_data['niu'],
+                principal_activity=serializer.validated_data['principal_activity'],
+                regime=serializer.validated_data['regime'],
+                tax_reporting_center=serializer.validated_data['tax_reporting_center'],
+                trade_register=serializer.validated_data['trade_register'],
+                logo=serializer.validated_data['logo'],
+                type_person=serializer.validated_data['type_person'],
+                user=request.infoUser.get('uuid')
+            )
+            return Response(FirmDetailSerializer(firm,context={"request":request, "firm":firm}).data,status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
