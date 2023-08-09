@@ -2,40 +2,56 @@ from rest_framework import serializers
 
 from firm.models import Firm
 
-from . constances import ACCEPT_IMAGE, MAX_IMAGE_SIZE, TAX_SYSTEM
+from .constants import ACCEPT_IMAGE, MAX_IMAGE_SIZE
 
+import base64
+import io
 
-
-import base64, io
 from PIL import Image
 
 
 class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     """ logical validataion for add entity """
-    uuid = serializers.CharField(max_length=1000, required=False, read_only=True)
-    tax_reporting_center = serializers.CharField(max_length=50, write_only=True)
-    trade_register = serializers.CharField(max_length=18, write_only=True)
+    id = serializers.CharField(
+        max_length=1000, required=False, read_only=True)
+    tax_reporting_center = serializers.CharField(
+        max_length=50, write_only=True)
+    trade_register = serializers.CharField(
+        max_length=18, write_only=True)
 
     class Meta:
         """ attributs serialized """
         model = Firm
-        fields = ['social_raison', 'sigle', 'niu', 'principal_activity', 'regime', 'tax_reporting_center', 'trade_register', 'logo', 'type_person', 'uuid']
+        fields = [
+            'business_name',
+            'acronym',
+            'unique_identifier_number',
+            'principal_activity',
+            'regime',
+            'tax_reporting_center',
+            'trade_register',
+            'logo',
+            'type_person',
+            'id'
+        ]
 
-    def validate_social_raison(self, value):
-        """ check validity of social_raison """
+    def validate_business_name(self, value):
+        """ check validity of business_name """
         try:
-            Firm.objects.get(social_raison=value.upper())
-            raise serializers.ValidationError('social_raison already exists')
+            Firm.objects.get(business_name=value.upper())
+            raise serializers.ValidationError('business_name already exists')
         except Firm.DoesNotExist:
             return value
 
-    def validate_niu(self, value):
+    def validate_unique_identifier_number(self, value):
         """ check validity of niu """
         if len(value) != 14:
-            raise serializers.ValidationError('wrong niu size')
+            raise serializers.ValidationError(
+                'wrong unique_identifier_number size')
         try:
-            Firm.objects.get(niu=value.upper())
-            raise serializers.ValidationError('niu already exists')
+            Firm.objects.get(unique_identifier_number=value.upper())
+            raise serializers.ValidationError(
+                'unique_identifier_number already exists')
         except Firm.DoesNotExist:
             return value
 
@@ -51,8 +67,9 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_type_person(self, value):
         """ check validity of type_person """
-        if value not in [1,2,'1','2']:
-            raise serializers.ValidationError('provide correct value for type_person')
+        if value not in [1, 2, '1', '2']:
+            raise serializers.ValidationError(
+                'provide correct value for type_person')
         return value
 
     def validate_logo(self, value):
@@ -70,11 +87,15 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
             raise serializers.ValidationError('logo is not valid base64 image')
         return value
 
+
 class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
     """ logical validataion for add entity """
-    uuid = serializers.CharField(max_length=1000, required=False, read_only=True)
-    active = serializers.CharField(max_length=1000, required=False, read_only=True)
-    date = serializers.CharField(max_length=1000, required=False, read_only=True)
+    uuid = serializers.CharField(
+        max_length=1000, required=False, read_only=True)
+    active = serializers.CharField(
+        max_length=1000, required=False, read_only=True)
+    date = serializers.CharField(
+        max_length=1000, required=False, read_only=True)
 
     class Meta:
         """ attributs serialized """
@@ -87,7 +108,8 @@ class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
             f = Firm.objects.get(social_raison=value.upper())
             firm = self.context['firm']
             if f != firm:
-                raise serializers.ValidationError('social_raison already exists')
+                raise serializers.ValidationError(
+                    'social_raison already exists')
             else:
                 return value
         except Firm.DoesNotExist:
