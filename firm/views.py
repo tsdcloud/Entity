@@ -1,8 +1,11 @@
 from django.shortcuts import get_object_or_404
 from django.db import DatabaseError, transaction
+from django.core.exceptions import ValidationError
+from django.http import Http404
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 
 from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 
@@ -34,6 +37,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [p.IsChangeFirm]
         elif self.action == 'destroy':
             self.permission_classes = [p.IsDestroyFirm]
+        elif self.action == 'restore':
+            self.permission_classes = [p.IsRestoreFirm]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -48,11 +53,14 @@ class FirmViewSet(viewsets.ModelViewSet):
 
     def get_object(self):
         """ define object on detail url """
-        if self.request.infoUser.get('is_superuser'):
-            r = Firm.objects.filter(id=self.kwargs['pk'])
-        else:
-            r = Firm.objects.filter(id=self.kwargs['pk'], is_active=True)
-        obj = get_object_or_404(r, id=self.kwargs["pk"])
+        try:
+            if self.request.infoUser.get('is_superuser'):
+                r = Firm.objects.filter(id=self.kwargs['pk'])
+            else:
+                r = Firm.objects.filter(id=self.kwargs['pk'], is_active=True)
+            obj = get_object_or_404(r, id=self.kwargs["pk"])
+        except ValidationError:
+            raise Http404("detail not found")
         return obj
 
     def create(self, request):
@@ -139,6 +147,18 @@ class FirmViewSet(viewsets.ModelViewSet):
     def destroy(self, request, pk):
         firm = self.get_object()
         firm.delete(user=self.request.infoUser.get('uuid'))
+        return Response(
+                FirmDetailSerializer(
+                    firm,
+                    context={"request": request, "firm": firm}
+                ).data,
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        firm = self.get_object()
+        firm.restore(user=request.infoUser.get('uuid'))
         return Response(
                 FirmDetailSerializer(
                     firm,
