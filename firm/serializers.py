@@ -19,13 +19,13 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Firm
-        fields = ['social_raison', 'sigle', 'niu', 'principal_activity', 'regime', 'tax_reporting_center', 'trade_register', 'logo', 'type_person', 'uuid']
+        fields = ['business_name', 'sigle', 'niu', 'principal_activity', 'regime', 'tax_reporting_center', 'trade_register', 'logo', 'type_person', 'uuid']
 
-    def validate_social_raison(self, value):
-        """ check validity of social_raison """
+    def validate_business_name(self, value):
+        """ check validity of business_name """
         try:
-            Firm.objects.get(social_raison=value.upper())
-            raise serializers.ValidationError('social_raison already exists')
+            Firm.objects.get(business_name=value.upper())
+            raise serializers.ValidationError('business_name already exists')
         except Firm.DoesNotExist:
             return value
 

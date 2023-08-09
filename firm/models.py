@@ -1,40 +1,42 @@
-from django.db import models
-from django.db import DatabaseError, transaction
 import uuid
 
-from common.constances import HOPERATION_CHOICE
-from .constances import TAX_SYSTEM, TYPE_PERSON
+from django.db import models
+from django.db import DatabaseError, transaction
+
+from django.utils.translation import ugettext_lazy as _, get_language
+
+from common.models import BaseUUIDModel
+from common.constants import TAX_SYSTEM, TYPE_PERSON, H_OPERATION_CHOICE
 
 # Create your models here.
-class Firm(models.Model):
-    """ entities management """
-    uuid = models.CharField(max_length=1000,editable=False)
-    social_raison = models.CharField(verbose_name="social raison", unique=True, max_length=100)
-    sigle = models.CharField(max_length=20)
-    niu = models.CharField(unique=True, max_length=14)
-    principal_activity = models.CharField(max_length=150, verbose_name="principal activity")
+
+
+class Firm(BaseUUIDModel):
+    """ Firm's class purpose is to manage entities """
+    business_name = models.CharField(_("Business Name"), unique=True, max_length=100)
+    acronym = models.CharField(max_length=20)
+    unique_identifier_number = models.CharField(_("Unique Identifier Number"), unique=True, max_length=14)
+    principal_activity = models.CharField(_("Principal Activity"), max_length=150)
     regime = models.IntegerField(choices=TAX_SYSTEM)
-    tax_reporting_center = models.CharField(max_length=50, verbose_name="centre de rattachement")
-    trade_register = models.CharField(unique=True, verbose_name="registre de commerce", max_length=18)
+    tax_reporting_center = models.CharField(_("Tax Reporting Center"), max_length=50)
+    trade_register = models.CharField(_("Trade Register"), unique=True, max_length=18)
     logo = models.TextField()
     type_person = models.IntegerField(choices=TYPE_PERSON)
-    active = models.BooleanField(default=True)
-    date = models.DateTimeField(auto_now_add=True, blank=True)
 
     class Meta:
         """ defined how the data will be shouted into the database """
-        ordering = ["social_raison", "sigle","date"]
+        ordering = ["business_name", "acronym","date"]
 
     def __str__(self):
         """ name in the administration """
-        return self.social_raison + "(" + self.sigle + ")"
+        return "(%s %s)" % (self.business_name, self.acronym)
 
-    def create(social_raison: str, sigle: str, niu: str, principal_activity: str, regime: str, tax_reporting_center: str, trade_register: str, logo: str, type_person: int, user:str):
+    def create(business_name: str, acronym: str, niu: str, principal_activity: str, regime: str, tax_reporting_center: str, trade_register: str, logo: str, type_person: int, user:str):
         """ add entity """
         firm = Firm()
         firm.uuid = str(uuid.uuid4())
-        firm.social_raison = social_raison.upper()
-        firm.sigle = sigle.upper()
+        firm.business_name = business_name.upper()
+        firm.acronym = acronym.upper()
         firm.niu = niu.upper()
         firm.principal_activity = principal_activity.upper()
         firm.regime = regime
@@ -55,8 +57,8 @@ class Firm(models.Model):
 
                 hfirm.firm = firm
                 hfirm.uuid = firm.uuid 
-                hfirm.social_raison = firm.social_raison 
-                hfirm.sigle = firm.sigle 
+                hfirm.business_name = firm.business_name 
+                hfirm.acronym = firm.acronym 
                 hfirm.niu = firm.niu 
                 hfirm.principal_activity = firm.principal_activity 
                 hfirm.regime = firm.regime
@@ -86,8 +88,8 @@ class HFirm(models.Model):
     """ firm history """
     firm = models.ForeignKey(Firm, on_delete=models.RESTRICT, related_name="hfirme" , editable=False)
     uuid = models.CharField(max_length=1000,editable=False)
-    social_raison = models.CharField(default="inconnue", max_length=100,editable=False)
-    sigle = models.CharField(default="inconnue", max_length=100, editable=False)
+    business_name = models.CharField(default="inconnue", max_length=100,editable=False)
+    acronym = models.CharField(default="inconnue", max_length=100, editable=False)
     niu = models.CharField(max_length=14, editable=False)
     principal_activity = models.CharField(max_length=150, editable=False)
     regime = models.IntegerField(choices=TAX_SYSTEM, editable=False)
