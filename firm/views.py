@@ -10,8 +10,7 @@ from firm.models import Firm
 from branch.models import Branch
 
 from common.permissions import IsDeactivate
-from . permissions import IsAddFirm, IsViewAllFirm
-from . permissions import IsViewDetailFirm, IsChangeFirm
+from . import permissions as p
 
 
 class FirmViewSet(viewsets.ModelViewSet):
@@ -26,13 +25,15 @@ class FirmViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """ define permissions """
         if self.action == 'create':
-            self.permission_classes = [IsAddFirm]
+            self.permission_classes = [p.IsAddFirm]
         elif self.action == 'list':
-            self.permission_classes = [IsViewAllFirm]
+            self.permission_classes = [p.IsViewAllFirm]
         elif self.action == 'retrieve':
-            self.permission_classes = [IsViewDetailFirm]
+            self.permission_classes = [p.IsViewDetailFirm]
         elif self.action == 'update':
-            self.permission_classes = [IsChangeFirm]
+            self.permission_classes = [p.IsChangeFirm]
+        elif self.action == 'destroy':
+            self.permission_classes = [p.IsDestroyFirm]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -133,4 +134,15 @@ class FirmViewSet(viewsets.ModelViewSet):
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def destroy(self, request, pk):
+        firm = self.get_object()
+        firm.delete(user=self.request.infoUser.get('uuid'))
+        return Response(
+                FirmDetailSerializer(
+                    firm,
+                    context={"request": request, "firm": firm}
+                ).data,
+                status=status.HTTP_200_OK
             )

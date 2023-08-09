@@ -150,7 +150,7 @@ class Firm(BaseUUIDModel):
 
     def delete(self, user: str):
         """ delete entity """
-        self.active = False
+        self.is_active = False
 
         hfirm = HFirm()
 
@@ -181,7 +181,7 @@ class Firm(BaseUUIDModel):
 
     def restore(self, user: str):
         """ active entity previously disabled """
-        self.active = True
+        self.is_active = True
 
         hfirm = HFirm()
 
