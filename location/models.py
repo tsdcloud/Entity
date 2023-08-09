@@ -43,11 +43,11 @@ class Region(models.Model):
         return self.name
 
     class Meta:
-        unique_together = (
-            ('name', 'country'),
-            ('iso2', 'lang'),
-            ('iso3', 'lang'),
-        )
+        #unique_together = (
+        #    ('name', 'country'),
+        #    ('iso2', 'lang'),
+        #    ('iso3', 'lang'),
+        #)
         verbose_name = _("Region")
         verbose_name_plural = _("Regions")
 

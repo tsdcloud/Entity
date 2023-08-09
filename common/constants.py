@@ -1,9 +1,10 @@
-from django.utils.translation import ugettext_lazy as _, get_language
+ENDPOINT_USER = "bfc.api.user.zukulufeg.com"
 
 H_OPERATION_CHOICE = [
     (1, 'CREATE'),
     (2, 'UPDATE'),
-    (3, 'DELETE')
+    (3, 'DELETE'),
+    (4, 'DELETE')
 ]
 
 BOOLEAN_CHOICES = [(1, 'TRUE'), (2, 'FALSE')]
