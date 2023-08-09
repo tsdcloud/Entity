@@ -47,11 +47,13 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
         """ check validity of niu """
         if len(value) != 14:
             raise serializers.ValidationError(
-                'wrong unique_identifier_number size')
+                'wrong unique_identifier_number size'
+            )
         try:
             Firm.objects.get(unique_identifier_number=value.upper())
             raise serializers.ValidationError(
-                'unique_identifier_number already exists')
+                'unique_identifier_number already exists'
+            )
         except Firm.DoesNotExist:
             return value
 
@@ -90,9 +92,9 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
 
 class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
     """ logical validataion for add entity """
-    uuid = serializers.CharField(
+    id = serializers.CharField(
         max_length=1000, required=False, read_only=True)
-    active = serializers.CharField(
+    is_active = serializers.CharField(
         max_length=1000, required=False, read_only=True)
     date = serializers.CharField(
         max_length=1000, required=False, read_only=True)
@@ -101,50 +103,57 @@ class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
         """ attributs serialized """
         model = Firm
         fields = "__all__"
-    
-    def validate_social_raison(self, value):
+
+    def validate_business_name(self, value):
         """ check validity of social_raison """
         try:
-            f = Firm.objects.get(social_raison=value.upper())
+            f = Firm.objects.get(business_name=value.upper())
             firm = self.context['firm']
             if f != firm:
                 raise serializers.ValidationError(
-                    'social_raison already exists')
+                    'business_name already exists'
+                )
             else:
                 return value
         except Firm.DoesNotExist:
             return value
 
-    def validate_niu(self, value):
-        """ check validity of niu """
+    def validate_unique_identifier_number(self, value):
+        """ check validity of unique_identifier_number """
         try:
-            f = Firm.objects.get(niu=value.upper())
+            f = Firm.objects.get(unique_identifier_number=value.upper())
             firm = self.context['firm']
             if f != firm:
-                raise serializers.ValidationError('niu already exists')
+                raise serializers.ValidationError(
+                    'unique_identifier_number already exists'
+                )
             else:
                 return value
         except Firm.DoesNotExist:
-            return value   
-    
+            return value
+
     def validate_trade_register(self, value):
         """ check validity of trade_register """
         try:
             f = Firm.objects.get(trade_register=value.upper())
             firm = self.context['firm']
             if f != firm:
-                raise serializers.ValidationError('trade_register already exists')
+                raise serializers.ValidationError(
+                    'trade_register already exists'
+                )
             else:
                 return value
         except Firm.DoesNotExist:
             return value
-    
+
     def validate_type_person(self, value):
         """ check validity of type_person """
-        if value not in [1,2,'1','2']:
-            raise serializers.ValidationError('provide correct value for type_person')
+        if value not in [1, 2, '1', '2']:
+            raise serializers.ValidationError(
+                'provide correct value for type_person'
+            )
         return value
-    
+
     def validate_logo(self, value):
         """ check validity of logo """
         try:

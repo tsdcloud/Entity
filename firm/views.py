@@ -28,6 +28,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsAddFirm]
         elif self.action == 'list':
             self.permission_classes = [IsViewAllFirm]
+        elif self.action == 'retrieve':
+            self.permission_classes = [IsViewDetailFirm]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
