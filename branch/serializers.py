@@ -91,8 +91,11 @@ class BranchDetailSerializer(serializers.HyperlinkedModelSerializer):
     is_principal = serializers.BooleanField(read_only=True)
     date = serializers.DateTimeField(read_only=True)
 
-    origin = serializers.SerializerMethodField()
-    firm = serializers.SerializerMethodField()
+    start = serializers.CharField(
+        max_length=1000, write_only=True)
+
+    origin = serializers.SerializerMethodField(read_only=True)
+    firm = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         """ attributs serialized """
@@ -103,11 +106,13 @@ class BranchDetailSerializer(serializers.HyperlinkedModelSerializer):
         """ serialize origin """
         if instance.is_principal is True:
             id = instance.id
+            label = instance.label
         else:
             id = instance.origin.id
+            label = instance.origin.label
         res = {
             "id": id,
-            "label": instance.label
+            "label": label
         }
         return res
 
@@ -119,31 +124,39 @@ class BranchDetailSerializer(serializers.HyperlinkedModelSerializer):
             "logo": instance.firm.logo
         }
 
-    def validate_origin(self, value):
-        """ check validity of origin """
+    def validate_start(self, value):
+        """ check validity of start """
         try:
             Branch.objects.get(id=value, is_active=True)
         except Branch.DoesNotExist:
-            raise serializers.ValidationError('origin not found')
-        return value
-
-    def validate_firm(self, value):
-        """ check validity of firm """
-        try:
-            Firm.objects.get(id=value, is_active=True)
-        except Firm.DoesNotExist:
-            raise serializers.ValidationError('firm not found')
+            raise serializers.ValidationError('start not found')
         return value
 
     def validate(self, data):
         """ check logical validation """
-        firm = Firm.objects.get(id=data['firm'])
-        origin = Branch.objects.get(id=data['branch'])
-        if firm != origin.firm:
-            raise serializers.ValidationError('firm and origin not found')
+        branch = self.context['branch']
+        if branch.is_active is False:
+            raise serializers.ValidationError(
+                'branch is not active'
+            )
+        if branch.is_principal is True:
+            raise serializers.ValidationError(
+                'cant not update this branch'
+            )
+        origin = Branch.objects.get(id=data['start'])
+        if branch.firm != origin.firm:
+            raise serializers.ValidationError('provide a good start ')
+        if branch == origin:
+            raise serializers.ValidationError(
+                'provide a valid start for this branch'
+            )
         try:
-            Branch.objects.get(label=data['label'].upper(), firm=firm)
-            raise serializers.ValidationError('label already exists')
+            tb = Branch.objects.get(
+                label=data['label'].upper(),
+                firm=branch.firm
+            )
+            if tb != branch:
+                raise serializers.ValidationError('label already exists')
         except Branch.DoesNotExist:
             pass
         return data

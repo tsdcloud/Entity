@@ -67,6 +67,33 @@ class Branch(BaseUUIDModel):
     def readByToken(cls, token: str):
         return cls.objects.get(id=token)
 
+    def change(self, label: str, origin: "Branch", user: str):
+        self.label = label.upper()
+        self.origin = origin
+        self.user = user
+
+        h_branch = HBranch()
+
+        try:
+            with transaction.atomic():
+                self.save()
+
+                h_branch.branch = self
+                h_branch.label = self.label
+                h_branch.firm = self.firm
+                h_branch.origin = self.origin
+                h_branch.is_principal = self.is_principal
+                h_branch.is_active = self.is_active
+                h_branch.date = self.date
+                h_branch.operation = 2
+                h_branch.user = user
+
+                h_branch.save()
+
+            return self
+        except DatabaseError:
+            return None
+
 
 class HBranch(models.Model):
     """ branch update history """

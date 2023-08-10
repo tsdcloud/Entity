@@ -15,7 +15,7 @@ from firm.models import Firm
 
 from common.permissions import IsDeactivate
 from branch.permissions import (
-    IsViewAllBranch, IsViewDetailBranch, IsAddBranch
+    IsViewAllBranch, IsViewDetailBranch, IsAddBranch, IsChangeBranch
 )
 
 
@@ -36,6 +36,8 @@ class BranchViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsViewDetailBranch]
         elif self.action == 'create':
             self.permission_classes = [IsAddBranch]
+        elif self.action == 'update':
+            self.permission_classes = [IsChangeBranch]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -84,6 +86,34 @@ class BranchViewSet(viewsets.ModelViewSet):
             return Response(
                 BranchStoreSerializer(branch).data,
                 status=status.HTTP_201_CREATED
+            )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def update(self, request, pk):
+        branch = self.get_object()
+        serializer = BranchDetailSerializer(
+            data=request.data,
+            context={"request": request, "branch": branch}
+        )
+        if serializer.is_valid():
+            origin = Branch.readByToken(
+                token=serializer.validated_data['start']
+            )
+            branch.change(
+                label=serializer.validated_data['label'],
+                origin=origin,
+                user=request.infoUser.get('uuid')
+            )
+            return Response(
+                BranchDetailSerializer(
+                    branch,
+                    context={"request": request, "branch": branch}
+                ).data,
+                status=status.HTTP_200_OK
             )
         else:
             return Response(
