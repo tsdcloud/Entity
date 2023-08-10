@@ -5,9 +5,10 @@ from django.http import Http404
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 
 from branch.serializers import (
-    BranchStoreSerializer, BranchDetailSerializer
+    BranchStoreSerializer, BranchDetailSerializer, BranchDestroySerializer
 )
 
 from branch.models import Branch
@@ -15,7 +16,8 @@ from firm.models import Firm
 
 from common.permissions import IsDeactivate
 from branch.permissions import (
-    IsViewAllBranch, IsViewDetailBranch, IsAddBranch, IsChangeBranch
+    IsViewAllBranch, IsViewDetailBranch, IsAddBranch, IsChangeBranch,
+    IsDestroyBranch, IsRestoreBranch
 )
 
 
@@ -38,6 +40,10 @@ class BranchViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsAddBranch]
         elif self.action == 'update':
             self.permission_classes = [IsChangeBranch]
+        elif self.action == 'destroy':
+            self.permission_classes = [IsDestroyBranch]
+        elif self.action == 'restore':
+            self.permission_classes = [IsRestoreBranch]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -119,4 +125,39 @@ class BranchViewSet(viewsets.ModelViewSet):
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def destroy(self, request, pk):
+        branch = self.get_object()
+        serializer = BranchDestroySerializer(
+            data=request.data,
+            context={"request": request, "branch": branch}
+        )
+        if serializer.is_valid():
+            branch.delete(
+                user=request.infoUser.get('uuid')
+            )
+            return Response(
+                BranchDetailSerializer(
+                    branch,
+                    context={"request": request, "branch": branch}
+                ).data,
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        branch = self.get_object()
+        branch.restore(user=request.infoUser.get('uuid'))
+        return Response(
+                BranchDetailSerializer(
+                    branch,
+                    context={"request": request, "branch": branch}
+                ).data,
+                status=status.HTTP_200_OK
             )

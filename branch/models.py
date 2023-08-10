@@ -68,6 +68,7 @@ class Branch(BaseUUIDModel):
         return cls.objects.get(id=token)
 
     def change(self, label: str, origin: "Branch", user: str):
+        """ update branch"""
         self.label = label.upper()
         self.origin = origin
         self.user = user
@@ -86,6 +87,56 @@ class Branch(BaseUUIDModel):
                 h_branch.is_active = self.is_active
                 h_branch.date = self.date
                 h_branch.operation = 2
+                h_branch.user = user
+
+                h_branch.save()
+
+            return self
+        except DatabaseError:
+            return None
+
+    def delete(self, user: str):
+        self.is_active = False
+
+        h_branch = HBranch()
+
+        try:
+            with transaction.atomic():
+                self.save()
+
+                h_branch.branch = self
+                h_branch.label = self.label
+                h_branch.firm = self.firm
+                h_branch.origin = self.origin
+                h_branch.is_principal = self.is_principal
+                h_branch.is_active = self.is_active
+                h_branch.date = self.date
+                h_branch.operation = 3
+                h_branch.user = user
+
+                h_branch.save()
+
+            return self
+        except DatabaseError:
+            return None
+
+    def restore(self, user: str):
+        self.is_active = True
+
+        h_branch = HBranch()
+
+        try:
+            with transaction.atomic():
+                self.save()
+
+                h_branch.branch = self
+                h_branch.label = self.label
+                h_branch.firm = self.firm
+                h_branch.origin = self.origin
+                h_branch.is_principal = self.is_principal
+                h_branch.is_active = self.is_active
+                h_branch.date = self.date
+                h_branch.operation = 4
                 h_branch.user = user
 
                 h_branch.save()

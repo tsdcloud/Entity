@@ -63,7 +63,7 @@ class IsChangeFirm(BasePermission):
 
 
 class IsDestroyFirm(BasePermission):
-    """ update entity """
+    """ destroy entity """
     def has_permission(self, request, view):
         if request.infoUser is None:
             return False

@@ -160,3 +160,65 @@ class BranchDetailSerializer(serializers.HyperlinkedModelSerializer):
         except Branch.DoesNotExist:
             pass
         return data
+
+
+class BranchDestroySerializer(serializers.HyperlinkedModelSerializer):
+    """ logical validataion for delete branch """
+    id = serializers.CharField(read_only=True)
+    is_service = serializers.BooleanField(read_only=True)
+    is_principal = serializers.BooleanField(read_only=True)
+    date = serializers.DateTimeField(read_only=True)
+
+    origin = serializers.SerializerMethodField(read_only=True)
+    firm = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        """ attributs serialized """
+        model = Branch
+        fields = "__all__"
+
+    def get_origin(self, instance):
+        """ serialize origin """
+        if instance.is_principal is True:
+            id = instance.id
+            label = instance.label
+        else:
+            id = instance.origin.id
+            label = instance.origin.label
+        res = {
+            "id": id,
+            "label": label
+        }
+        return res
+
+    def get_firm(self, instance):
+        return {
+            "id": instance.firm.id,
+            "business_name": instance.firm.business_name,
+            "acronym": instance.firm.acronym,
+            "logo": instance.firm.logo
+        }
+
+    def validate(self, data):
+        """ check logical validation """
+        branch = self.context['branch']
+        if branch.is_active is False:
+            raise serializers.ValidationError(
+                'branch is not active'
+            )
+        if branch.is_principal is True:
+            raise serializers.ValidationError(
+                'cant not delete this branch'
+            )
+
+        tb = Branch.objects.filter(
+            origin=branch,
+            is_active=True
+        )
+        if 0 != len(tb):
+            raise serializers.ValidationError(
+                'you cant not delete this branch,' +
+                'because, this branch is used by ' +
+                'an other branch'
+            )
+        return data
