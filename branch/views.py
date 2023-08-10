@@ -1,18 +1,21 @@
+from django.db import DatabaseError
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.http import Http404
 
-from rest_framework import viewsets
+from rest_framework import viewsets, status
+from rest_framework.response import Response
 
 from branch.serializers import (
     BranchStoreSerializer, BranchDetailSerializer
 )
 
 from branch.models import Branch
+from firm.models import Firm
 
 from common.permissions import IsDeactivate
 from branch.permissions import (
-    IsViewAllBranch, IsViewDetailBranch
+    IsViewAllBranch, IsViewDetailBranch, IsAddBranch
 )
 
 
@@ -31,6 +34,8 @@ class BranchViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsViewAllBranch]
         elif self.action == 'retrieve':
             self.permission_classes = [IsViewDetailBranch]
+        elif self.action == 'create':
+            self.permission_classes = [IsAddBranch]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -54,3 +59,34 @@ class BranchViewSet(viewsets.ModelViewSet):
         except ValidationError:
             raise Http404("detail not found")
         return obj
+
+    def create(self, request):
+        """ add branch """
+        serializer = BranchStoreSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                firm = Firm.readByToken(
+                    token=serializer.validated_data['entity']
+                )
+                origin = Branch.readByToken(
+                    token=serializer.validated_data['start']
+                )
+                branch = Branch.create(
+                    label=serializer.validated_data['label'],
+                    firm=firm,
+                    origin=origin,
+                    is_principal=False,
+                    user=request.infoUser.get('uuid')
+                )
+            except DatabaseError:
+                branch = None
+
+            return Response(
+                BranchStoreSerializer(branch).data,
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )

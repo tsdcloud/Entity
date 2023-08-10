@@ -10,13 +10,6 @@ import io
 from PIL import Image
 
 
-class FirmPartialSerializer(serializers.HyperlinkedModelSerializer):
-    """ partial serializer of firm """
-    class Meta:
-        model = Firm
-        fields = ['id', 'business_name', 'acronym', 'logo', 'regime']
-
-
 class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     """ logical validataion for add entity """
     id = serializers.CharField(

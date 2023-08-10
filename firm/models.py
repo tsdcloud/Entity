@@ -213,7 +213,7 @@ class Firm(BaseUUIDModel):
     @classmethod
     def readByToken(cls, token: str):
         """ take an entity from token"""
-        return cls.objects.get(uuid=token)
+        return cls.objects.get(id=token)
 
 
 class HFirm(models.Model):

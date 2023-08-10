@@ -65,7 +65,7 @@ class Branch(BaseUUIDModel):
 
     @classmethod
     def readByToken(cls, token: str):
-        return cls.objects.get(uuid=token)
+        return cls.objects.get(id=token)
 
 
 class HBranch(models.Model):
