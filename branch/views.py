@@ -5,14 +5,14 @@ from django.http import Http404
 from rest_framework import viewsets
 
 from branch.serializers import (
-    BranchStoreSerializer
+    BranchStoreSerializer, BranchDetailSerializer
 )
 
 from branch.models import Branch
 
 from common.permissions import IsDeactivate
 from branch.permissions import (
-    IsViewAllBranch
+    IsViewAllBranch, IsViewDetailBranch
 )
 
 
@@ -21,12 +21,16 @@ class BranchViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         """ define serializer """
+        if self.action in ['retrieve', 'update']:
+            return BranchDetailSerializer
         return BranchStoreSerializer
 
     def get_permissions(self):
         """ define permissions """
         if self.action == 'list':
             self.permission_classes = [IsViewAllBranch]
+        elif self.action == 'retrieve':
+            self.permission_classes = [IsViewDetailBranch]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
