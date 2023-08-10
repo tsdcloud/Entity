@@ -1,3 +1,52 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError
+from django.http import Http404
 
-# Create your views here.
+from rest_framework import viewsets
+
+from branch.serializers import (
+    BranchStoreSerializer
+)
+
+from branch.models import Branch
+
+from common.permissions import IsDeactivate
+from branch.permissions import (
+    IsViewAllBranch
+)
+
+
+class BranchViewSet(viewsets.ModelViewSet):
+    """ branch controller """
+
+    def get_serializer_class(self):
+        """ define serializer """
+        return BranchStoreSerializer
+
+    def get_permissions(self):
+        """ define permissions """
+        if self.action == 'list':
+            self.permission_classes = [IsViewAllBranch]
+        else:
+            self.permission_classes = [IsDeactivate]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        """ define queryset """
+        if self.request.infoUser.get('is_superuser'):
+            queryset = Branch.objects.all()
+        else:
+            queryset = Branch.objects.filter(is_active=True)
+        return queryset
+
+    def get_object(self):
+        """ define object on detail url """
+        try:
+            if self.request.infoUser.get('is_superuser'):
+                r = Branch.objects.filter(id=self.kwargs['pk'])
+            else:
+                r = Branch.objects.filter(id=self.kwargs['pk'], is_active=True)
+            obj = get_object_or_404(r, id=self.kwargs["pk"])
+        except ValidationError:
+            raise Http404("detail not found")
+        return obj

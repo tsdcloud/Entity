@@ -44,7 +44,7 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
             return value
 
     def validate_unique_identifier_number(self, value):
-        """ check validity of niu """
+        """ check validity of unique identifier number """
         if len(value) != 14:
             raise serializers.ValidationError(
                 'wrong unique_identifier_number size'
