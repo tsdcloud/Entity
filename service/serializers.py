@@ -45,11 +45,22 @@ class ServiceStoreSerializer(serializers.HyperlinkedModelSerializer):
     def validate(self, data):
         branch = Branch.objects.get(id=data['branch_id'])
         firm = branch.firm
+        request = self.context['request']
+        is_superuser = request.infoUser['user']['is_superuser']
+        firms_possibles = Employee.firms_visibles(
+            user=request.infoUser['uuid'],
+            is_superuser=is_superuser
+        )
+        if firm not in firms_possibles:
+            raise serializers.ValidationError(
+                detail='no found',
+                code=-1
+            )
         try:
             Service.objects.get(
                 name=data['name'].upper(),
                 is_active=True,
-                branch_firm=firm
+                branch__firm=firm
             )
             raise serializers.ValidationError(
                 detail="name already exists", code=-1
@@ -93,7 +104,8 @@ class ServiceDetailSerializer(serializers.HyperlinkedModelSerializer):
                     detail='name already exists', code=-1
                 )
         except Service.DoesNotExist:
-            return value
+            pass
+        return value
 
     def validate_branch_id(self, value):
         """ check validity of branch_id """
@@ -120,13 +132,13 @@ class ServiceDestroySerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Branch
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """
         service = self.context['service']
         employees = Employee.objects.filter(
-            function__service=service,
+            functions__service=service,
             is_active=True
         )
         if len(employees) != 0:
@@ -144,7 +156,7 @@ class ServiceRestoreSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Branch
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """

@@ -36,7 +36,7 @@ class Service(BaseUUIDModel):
         """ add service """
         try:
             service = Service.objects.get(
-                name=name.upper(), branch_firm=branch.firm)
+                name=name.upper(), branch__firm=branch.firm)
         except Service.DoesNotExist:
             service = Service()
             service.name = name.upper()
@@ -65,7 +65,7 @@ class Service(BaseUUIDModel):
             with transaction.atomic():
                 self.save()
 
-                self.branch.is_service = True
+                self.branch.changeIsService(user=user, is_service=True)
                 self.branch.save()
 
                 Service.insertHistory(service=self, operation=2, user=user)

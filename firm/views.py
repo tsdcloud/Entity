@@ -9,10 +9,12 @@ from rest_framework.decorators import action
 
 from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 from branch.serializers import BranchPartialSerializer
+from service.serializers import ServiceStoreSerializer
 
 from firm.models import Firm
 from branch.models import Branch
 from employee.models import Employee
+from service.models import Service
 
 from common.permissions import IsDeactivate
 from . permissions import (
@@ -20,6 +22,7 @@ from . permissions import (
     IsViewAllFirm, IsViewDetailFirm
 )
 from branch.permissions import IsViewAllBranch
+from service.permissions import IsViewAllService
 
 
 class FirmViewSet(viewsets.ModelViewSet):
@@ -47,6 +50,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsRestoreFirm]
         elif self.action == 'branchs':
             self.permission_classes = [IsViewAllBranch]
+        elif self.action == 'services':
+            self.permission_classes = [IsViewAllService]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -196,6 +201,37 @@ class FirmViewSet(viewsets.ModelViewSet):
         return Response(
                 BranchPartialSerializer(
                     branchs,
+                    context={"request": request},
+                    many=True
+                ).data,
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['get'])
+    def services(self, request, pk):
+        """ listing of serivices's firm """
+        firm = self.get_object()
+        if self.request.infoUser['user']['is_superuser'] is True:
+            services = Service.objects.filter(
+                branch__firm=firm
+            )
+        else:
+            services = Service.objects.filter(
+                branch__firm=firm,
+                is_active=True
+            )
+        queryset = self.filter_queryset(services)
+        page = self.paginate_queryset(queryset=queryset)
+        if page is not None:
+            serializer = ServiceStoreSerializer(
+                page,
+                many=True,
+                context={"request": request}
+            )
+            return self.get_paginated_response(serializer.data)
+        return Response(
+                ServiceStoreSerializer(
+                    services,
                     context={"request": request},
                     many=True
                 ).data,

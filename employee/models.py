@@ -2,6 +2,7 @@ from django.db import models
 from django.db import DatabaseError, transaction
 from function.models import Function
 from rank.models import Rank
+from firm.models import Firm
 from common.models import BaseUUIDModel, BaseHistoryModel
 from common.constants import EMPLOYEE_CATEGORIE
 import datetime
@@ -149,22 +150,46 @@ class Employee(BaseUUIDModel):
         return cls.objects.select_for_update().get(id=token)
 
     @staticmethod
-    def firms_visibles(user: str):
-        employees = Employee.objects.filter(is_active=True, user=user)
-        firms = []
-        for employee in employees:
-            if employee.rank.firm.is_active is True:
-                firms.append(employee.rank.firm)
-        return firms
+    def firms_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Firm.objects.all()
+        else:
+            employees = Employee.objects.filter(is_active=True, user=user)
+            firms = []
+            for employee in employees:
+                if employee.rank.firm.is_active is True:
+                    firms.append(employee.rank.firm)
+            return firms
 
     @staticmethod
-    def branchs_visibles(user: str):
-        firms = Employee.firms_visibles(user=user)
+    def branchs_visibles(user: str, is_superuser=False):
+        firms = Employee.firms_visibles(user=user, is_superuser=is_superuser)
         branchs = []
         for firm in firms:
-            if firm.branch.is_active is True:
-                branchs.append(firm.branch)
+            if is_superuser is True:
+                all_firm_branch = firm.branchs.all()
+            else:
+                all_firm_branch = firm.branchs.filter(is_active=True)
+            for item in all_firm_branch:
+                branchs.append(item)
         return branchs
+
+    @staticmethod
+    def services_visibles(user: str, is_superuser=False):
+        branchs = Employee.branchs_visibles(
+            user=user, is_superuser=is_superuser
+        )
+        services = []
+        for branch in branchs:
+            try:
+                service = branch.service
+                if is_superuser is True:
+                    services.append(service)
+                elif service.is_active is True:
+                    services.append(service)
+            except AttributeError:
+                pass
+        return services
 
 
 class HEmployee(BaseHistoryModel):

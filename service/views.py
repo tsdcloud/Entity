@@ -14,6 +14,7 @@ from service.serializers import (
 
 from branch.models import Branch
 from service.models import Service
+from employee.models import Employee
 
 from common.permissions import IsDeactivate
 from service.permissions import (
@@ -54,7 +55,9 @@ class ServiceViewSet(viewsets.ModelViewSet):
         if self.request.infoUser['user']['is_superuser'] is True:
             queryset = Service.objects.all()
         else:
-            queryset = Service.objects.filter(is_active=True)
+            queryset = Employee.services_visibles(
+                user=self.request.infoUser.get('uuid'),
+            )
         return queryset
 
     def get_object(self):
@@ -68,7 +71,10 @@ class ServiceViewSet(viewsets.ModelViewSet):
 
     def create(self, request):
         """ add service """
-        serializer = ServiceStoreSerializer(data=request.data)
+        serializer = ServiceStoreSerializer(
+            data=request.data,
+            context={"request": request}
+        )
         if serializer.is_valid():
             try:
                 branch = Branch.readByToken(
@@ -76,7 +82,9 @@ class ServiceViewSet(viewsets.ModelViewSet):
                 )
                 service = Service.create(
                     name=serializer.validated_data['name'],
-                    description=serializer.validated_data['description'],
+                    description=serializer.validated_data.get(
+                        'description', ' '
+                    ),
                     branch=branch,
                     user=request.infoUser.get('uuid')
                 )
@@ -84,7 +92,12 @@ class ServiceViewSet(viewsets.ModelViewSet):
                 service = None
 
             return Response(
-                ServiceStoreSerializer(service).data,
+                ServiceStoreSerializer(
+                    service,
+                    context={
+                        "request": request
+                    }
+                ).data,
                 status=status.HTTP_201_CREATED
             )
         else:
@@ -105,7 +118,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
             )
             service.change(
                 name=serializer.validated_data['name'],
-                description=serializer.validated_data['description'],
+                description=serializer.validated_data.get('description', " "),
                 branch=branch,
                 user=request.infoUser.get('uuid')
             )
