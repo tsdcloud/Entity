@@ -8,13 +8,18 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
+from branch.serializers import BranchStoreSerializer
 
 from firm.models import Firm
 from branch.models import Branch
 from employee.models import Employee
 
 from common.permissions import IsDeactivate
-from . import permissions as p
+from . permissions import (
+    IsAddFirm, IsChangeFirm, IsDestroyFirm, IsRestoreFirm,
+    IsViewAllFirm, IsViewDetailFirm
+)
+from branch.permissions import IsViewAllBranch
 
 
 class FirmViewSet(viewsets.ModelViewSet):
@@ -29,17 +34,19 @@ class FirmViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """ define permissions """
         if self.action == 'create':
-            self.permission_classes = [p.IsAddFirm]
+            self.permission_classes = [IsAddFirm]
         elif self.action == 'list':
-            self.permission_classes = [p.IsViewAllFirm]
+            self.permission_classes = [IsViewAllFirm]
         elif self.action == 'retrieve':
-            self.permission_classes = [p.IsViewDetailFirm]
+            self.permission_classes = [IsViewDetailFirm]
         elif self.action == 'update':
-            self.permission_classes = [p.IsChangeFirm]
+            self.permission_classes = [IsChangeFirm]
         elif self.action == 'destroy':
-            self.permission_classes = [p.IsDestroyFirm]
+            self.permission_classes = [IsDestroyFirm]
         elif self.action == 'restore':
-            self.permission_classes = [p.IsRestoreFirm]
+            self.permission_classes = [IsRestoreFirm]
+        elif self.action == 'branchs':
+            self.permission_classes = [IsViewAllBranch]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -164,6 +171,28 @@ class FirmViewSet(viewsets.ModelViewSet):
                 FirmDetailSerializer(
                     firm,
                     context={"request": request, "firm": firm}
+                ).data,
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['get'])
+    def branchs(self, request, pk):
+        """ listing of branch's firm """
+        firm = self.get_object()
+        branchs = Branch.objects.filter(
+            firm=firm,
+            is_active=self.request.infoUser['user']['is_superuser']
+        )
+        queryset = self.filter_queryset(branchs)
+        page = self.paginate_queryset(queryset=queryset)
+        if page is not None:
+            serializer = BranchStoreSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        return Response(
+                BranchStoreSerializer(
+                    branchs,
+                    context={"request": request},
+                    many=True
                 ).data,
                 status=status.HTTP_200_OK
             )
