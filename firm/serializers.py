@@ -12,8 +12,8 @@ from PIL import Image
 
 class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     """ logical validataion for add entity """
-    id = serializers.CharField(
-        max_length=1000, required=False, read_only=True)
+    id = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
     tax_reporting_center = serializers.CharField(
         max_length=50, write_only=True)
     trade_register = serializers.CharField(
@@ -32,7 +32,8 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
             'trade_register',
             'logo',
             'type_person',
-            'id'
+            'id',
+            'is_active'
         ]
 
     def validate_business_name(self, value):
@@ -91,11 +92,10 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
-    """ logical validataion for add entity """
+    """ logical validataion for update entity """
     id = serializers.CharField(
         max_length=1000, required=False, read_only=True)
-    is_active = serializers.CharField(
-        max_length=1000, required=False, read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
     date = serializers.DateTimeField(read_only=True)
 
     class Meta:

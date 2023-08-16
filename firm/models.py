@@ -1,6 +1,5 @@
 from django.db import models
 from django.db import DatabaseError, transaction
-
 from common.models import BaseUUIDModel
 from common.constants import H_OPERATION_CHOICE
 from . constants import TAX_SYSTEM, TYPE_PERSON
@@ -47,6 +46,26 @@ class Firm(BaseUUIDModel):
         return "(%s %s)" % (self.business_name, self.acronym)
 
     @staticmethod
+    def insertHistory(firm: "Firm", user: str, operation: int):
+        hfirm = HFirm()
+        hfirm.firm = firm
+        hfirm.business_name = firm.business_name
+        hfirm.acronym = firm.acronym
+        hfirm.unique_identifier_number = firm.unique_identifier_number
+        hfirm.principal_activity = firm.principal_activity
+        hfirm.regime = firm.regime
+        hfirm.tax_reporting_center = firm.tax_reporting_center
+        hfirm.trade_register = firm.trade_register
+        hfirm.logo = firm.logo
+        hfirm.type_person = firm.type_person
+        hfirm.is_active = firm.is_active
+        hfirm.date = firm.date
+        hfirm.operation = operation
+        hfirm.user = user
+
+        hfirm.save()
+
+    @staticmethod
     def create(
         business_name: str,
         acronym: str,
@@ -60,10 +79,15 @@ class Firm(BaseUUIDModel):
         user: str
     ):
         """ add entity """
-        firm = Firm()
-        firm.business_name = business_name.upper()
-        firm.acronym = acronym.upper()
+        try:
+            firm = Firm.objects.get(business_name=business_name)
+            firm.is_active = True
+        except Firm.DoesNotExist:
+            firm = Firm()
+            firm.business_name = business_name.upper()
+
         firm.unique_identifier_number = unique_identifier_number.upper()
+        firm.acronym = acronym.upper()
         firm.principal_activity = principal_activity.upper()
         firm.regime = regime
         firm.tax_reporting_center = tax_reporting_center.upper()
@@ -71,28 +95,10 @@ class Firm(BaseUUIDModel):
         firm.logo = logo
         firm.type_person = type_person
 
-        hfirm = HFirm()
-
         try:
             with transaction.atomic():
                 firm.save()
-
-                hfirm.firm = firm
-                hfirm.business_name = firm.business_name
-                hfirm.acronym = firm.acronym
-                hfirm.unique_identifier_number = firm.unique_identifier_number
-                hfirm.principal_activity = firm.principal_activity
-                hfirm.regime = firm.regime
-                hfirm.tax_reporting_center = firm.tax_reporting_center
-                hfirm.trade_register = firm.trade_register
-                hfirm.logo = firm.logo
-                hfirm.type_person = firm.type_person
-                hfirm.is_active = firm.is_active
-                hfirm.date = firm.date
-                hfirm.operation = 1
-                hfirm.user = user
-
-                hfirm.save()
+                Firm.insertHistory(firm=firm, user=user, operation=1)
             return firm
         except DatabaseError:
             return None
@@ -121,29 +127,10 @@ class Firm(BaseUUIDModel):
         self.logo = logo
         self.type_person = type_person
 
-        hfirm = HFirm()
-
         try:
             with transaction.atomic():
                 self.save()
-
-                hfirm.firm = self
-                hfirm.business_name = self.business_name
-                hfirm.acronym = self.acronym
-                hfirm.unique_identifier_number = self.unique_identifier_number
-                hfirm.principal_activity = self.principal_activity
-                hfirm.regime = self.regime
-                hfirm.tax_reporting_center = self.tax_reporting_center
-                hfirm.trade_register = self.trade_register
-                hfirm.logo = self.logo
-                hfirm.type_person = self.type_person
-                hfirm.is_active = self.is_active
-                hfirm.date = self.date
-                hfirm.operation = 2
-                hfirm.user = user
-
-                hfirm.save()
-
+                Firm.insertHistory(firm=self, user=user, operation=2)
             return self
         except DatabaseError:
             return None
@@ -152,29 +139,10 @@ class Firm(BaseUUIDModel):
         """ delete entity """
         self.is_active = False
 
-        hfirm = HFirm()
-
         try:
             with transaction.atomic():
                 self.save()
-
-                hfirm.firm = self
-                hfirm.business_name = self.business_name
-                hfirm.acronym = self.acronym
-                hfirm.unique_identifier_number = self.unique_identifier_number
-                hfirm.principal_activity = self.principal_activity
-                hfirm.regime = self.regime
-                hfirm.tax_reporting_center = self.tax_reporting_center
-                hfirm.trade_register = self.trade_register
-                hfirm.logo = self.logo
-                hfirm.type_person = self.type_person
-                hfirm.is_active = self.is_active
-                hfirm.date = self.date
-                hfirm.operation = 3
-                hfirm.user = user
-
-                hfirm.save()
-
+                Firm.insertHistory(firm=self, user=user, operation=3)
             return self
         except DatabaseError:
             return None
@@ -183,37 +151,20 @@ class Firm(BaseUUIDModel):
         """ active entity previously disabled """
         self.is_active = True
 
-        hfirm = HFirm()
-
         try:
             with transaction.atomic():
                 self.save()
-
-                hfirm.firm = self
-                hfirm.business_name = self.business_name
-                hfirm.acronym = self.acronym
-                hfirm.unique_identifier_number = self.unique_identifier_number
-                hfirm.principal_activity = self.principal_activity
-                hfirm.regime = self.regime
-                hfirm.tax_reporting_center = self.tax_reporting_center
-                hfirm.trade_register = self.trade_register
-                hfirm.logo = self.logo
-                hfirm.type_person = self.type_person
-                hfirm.is_active = self.is_active
-                hfirm.date = self.date
-                hfirm.operation = 4
-                hfirm.user = user
-
-                hfirm.save()
-
+                Firm.insertHistory(firm=self, user=user, operation=4)
             return self
         except DatabaseError:
             return None
 
     @classmethod
-    def readByToken(cls, token: str):
-        """ take an entity from token"""
-        return cls.objects.get(id=token)
+    def readByToken(cls, token: str, is_change=False):
+        """ take an firm from token"""
+        if is_change is False:
+            return cls.objects.get(id=token)
+        return cls.objects.select_for_update().get(id=token)
 
 
 class HFirm(models.Model):

@@ -11,6 +11,7 @@ from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 
 from firm.models import Firm
 from branch.models import Branch
+from employee.models import Employee
 
 from common.permissions import IsDeactivate
 from . import permissions as p
@@ -45,20 +46,19 @@ class FirmViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """ define queryset """
-        if self.request.infoUser.get('is_superuser'):
+        if self.request.infoUser['user']['is_superuser'] is True:
             queryset = Firm.objects.all()
         else:
-            queryset = Firm.objects.filter(is_active=True)
+            queryset = Employee.firms_visibles(
+                user=self.request.infoUser.get('uuid')
+            )
         return queryset
 
     def get_object(self):
         """ define object on detail url """
+        queryset = self.get_queryset()
         try:
-            if self.request.infoUser.get('is_superuser'):
-                r = Firm.objects.filter(id=self.kwargs['pk'])
-            else:
-                r = Firm.objects.filter(id=self.kwargs['pk'], is_active=True)
-            obj = get_object_or_404(r, id=self.kwargs["pk"])
+            obj = get_object_or_404(queryset, id=self.kwargs["pk"])
         except ValidationError:
             raise Http404("detail not found")
         return obj
@@ -157,6 +157,7 @@ class FirmViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
+        """ restore an entity """
         firm = self.get_object()
         firm.restore(user=request.infoUser.get('uuid'))
         return Response(

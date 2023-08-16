@@ -8,7 +8,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from branch.serializers import (
-    BranchStoreSerializer, BranchDetailSerializer, BranchDestroySerializer
+    BranchStoreSerializer, BranchDetailSerializer, BranchDestroySerializer,
+    BranchRestoreSerializer
 )
 
 from branch.models import Branch
@@ -50,7 +51,7 @@ class BranchViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """ define queryset """
-        if self.request.infoUser.get('is_superuser'):
+        if self.request.infoUser['user']['is_superuser'] is True:
             queryset = Branch.objects.all()
         else:
             queryset = Branch.objects.filter(is_active=True)
@@ -59,7 +60,7 @@ class BranchViewSet(viewsets.ModelViewSet):
     def get_object(self):
         """ define object on detail url """
         try:
-            if self.request.infoUser.get('is_superuser'):
+            if self.request.infoUser['user']['is_superuser'] is True:
                 r = Branch.objects.filter(id=self.kwargs['pk'])
             else:
                 r = Branch.objects.filter(id=self.kwargs['pk'], is_active=True)
@@ -74,10 +75,10 @@ class BranchViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             try:
                 firm = Firm.readByToken(
-                    token=serializer.validated_data['entity']
+                    token=serializer.validated_data['firm_id']
                 )
                 origin = Branch.readByToken(
-                    token=serializer.validated_data['start']
+                    token=serializer.validated_data['origin_id']
                 )
                 branch = Branch.create(
                     label=serializer.validated_data['label'],
@@ -107,7 +108,7 @@ class BranchViewSet(viewsets.ModelViewSet):
         )
         if serializer.is_valid():
             origin = Branch.readByToken(
-                token=serializer.validated_data['start']
+                token=serializer.validated_data['origin_id']
             )
             branch.change(
                 label=serializer.validated_data['label'],
@@ -153,11 +154,21 @@ class BranchViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
         branch = self.get_object()
-        branch.restore(user=request.infoUser.get('uuid'))
-        return Response(
-                BranchDetailSerializer(
-                    branch,
-                    context={"request": request, "branch": branch}
-                ).data,
-                status=status.HTTP_200_OK
+        serializer = BranchRestoreSerializer(
+            data=request.data,
+            context={"request": request, "branch": branch}
+        )
+        if serializer.is_valid():
+            branch.restore(user=request.infoUser.get('uuid'))
+            return Response(
+                    BranchDetailSerializer(
+                        branch,
+                        context={"request": request, "branch": branch}
+                    ).data,
+                    status=status.HTTP_200_OK
+                )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
             )
