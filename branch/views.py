@@ -9,17 +9,20 @@ from rest_framework.decorators import action
 
 from branch.serializers import (
     BranchStoreSerializer, BranchDetailSerializer, BranchDestroySerializer,
-    BranchRestoreSerializer
+    BranchRestoreSerializer, BranchServiceSerializer
 )
+from service.serializers import ServiceDetailSerializer
 
 from branch.models import Branch
 from firm.models import Firm
+from employee.models import Employee
 
 from common.permissions import IsDeactivate
 from branch.permissions import (
     IsViewAllBranch, IsViewDetailBranch, IsAddBranch, IsChangeBranch,
     IsDestroyBranch, IsRestoreBranch
 )
+from service.permissions import IsViewDetailService
 
 
 class BranchViewSet(viewsets.ModelViewSet):
@@ -45,6 +48,8 @@ class BranchViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsDestroyBranch]
         elif self.action == 'restore':
             self.permission_classes = [IsRestoreBranch]
+        elif self.action == 'service':
+            self.permission_classes = [IsViewDetailService]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -54,24 +59,28 @@ class BranchViewSet(viewsets.ModelViewSet):
         if self.request.infoUser['user']['is_superuser'] is True:
             queryset = Branch.objects.all()
         else:
-            queryset = Branch.objects.filter(is_active=True)
+            queryset = Employee.branchs_visibles(
+                user=self.request.infoUser.get('uuid')
+            )
         return queryset
 
     def get_object(self):
         """ define object on detail url """
         try:
-            if self.request.infoUser['user']['is_superuser'] is True:
-                r = Branch.objects.filter(id=self.kwargs['pk'])
-            else:
-                r = Branch.objects.filter(id=self.kwargs['pk'], is_active=True)
-            obj = get_object_or_404(r, id=self.kwargs["pk"])
+            obj = get_object_or_404(self.get_queryset(), id=self.kwargs["pk"])
         except ValidationError:
             raise Http404("detail not found")
         return obj
 
     def create(self, request):
         """ add branch """
-        serializer = BranchStoreSerializer(data=request.data)
+        serializer = BranchStoreSerializer(
+            data=request.data,
+            context={
+                "request": request,
+                "queryset": self.get_queryset()
+            }
+        )
         if serializer.is_valid():
             try:
                 firm = Firm.readByToken(
@@ -91,7 +100,13 @@ class BranchViewSet(viewsets.ModelViewSet):
                 branch = None
 
             return Response(
-                BranchStoreSerializer(branch).data,
+                BranchStoreSerializer(
+                    branch,
+                    context={
+                        "request": request,
+                        "queryset": self.get_queryset()
+                    }
+                ).data,
                 status=status.HTTP_201_CREATED
             )
         else:
@@ -164,6 +179,28 @@ class BranchViewSet(viewsets.ModelViewSet):
                     BranchDetailSerializer(
                         branch,
                         context={"request": request, "branch": branch}
+                    ).data,
+                    status=status.HTTP_200_OK
+                )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['get'])
+    def service(self, request, pk):
+        branch = self.get_object()
+        serializer = BranchServiceSerializer(
+            data=request.data,
+            context={"request": request, "branch": branch}
+        )
+        if serializer.is_valid():
+            service = branch.service
+            return Response(
+                    ServiceDetailSerializer(
+                        service,
+                        context={"request": request, "service": service}
                     ).data,
                     status=status.HTTP_200_OK
                 )

@@ -9,8 +9,8 @@ from branch.models import Branch
 class Service(BaseUUIDModel):
     name = models.CharField(max_length=100)
     description = models.TextField()
-    branch = models.ForeignKey(
-        Branch, on_delete=models.RESTRICT, related_name="services")
+    branch = models.OneToOneField(
+        Branch, on_delete=models.RESTRICT, related_name="service")
 
     class Meta:
         """ defined how the data will be shouted into the database """

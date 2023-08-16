@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
-from branch.serializers import BranchStoreSerializer
+from branch.serializers import BranchPartialSerializer
 
 from firm.models import Firm
 from branch.models import Branch
@@ -179,17 +179,22 @@ class FirmViewSet(viewsets.ModelViewSet):
     def branchs(self, request, pk):
         """ listing of branch's firm """
         firm = self.get_object()
-        branchs = Branch.objects.filter(
-            firm=firm,
-            is_active=self.request.infoUser['user']['is_superuser']
-        )
+        if self.request.infoUser['user']['is_superuser'] is True:
+            branchs = Branch.objects.filter(
+                firm=firm
+            )
+        else:
+            branchs = Branch.objects.filter(
+                firm=firm,
+                is_active=True
+            )
         queryset = self.filter_queryset(branchs)
         page = self.paginate_queryset(queryset=queryset)
         if page is not None:
-            serializer = BranchStoreSerializer(page, many=True)
+            serializer = BranchPartialSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         return Response(
-                BranchStoreSerializer(
+                BranchPartialSerializer(
                     branchs,
                     context={"request": request},
                     many=True

@@ -157,6 +157,15 @@ class Employee(BaseUUIDModel):
                 firms.append(employee.rank.firm)
         return firms
 
+    @staticmethod
+    def branchs_visibles(user: str):
+        firms = Employee.firms_visibles(user=user)
+        branchs = []
+        for firm in firms:
+            if firm.branch.is_active is True:
+                branchs.append(firm.branch)
+        return branchs
+
 
 class HEmployee(BaseHistoryModel):
     employee = models.ForeignKey(

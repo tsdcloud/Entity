@@ -4,6 +4,39 @@ from firm.models import Firm
 from branch.models import Branch
 
 
+class BranchPartialSerializer(serializers.HyperlinkedModelSerializer):
+    """ only read a partial attributes of branch """
+    id = serializers.CharField(read_only=True)
+    is_service = serializers.BooleanField(read_only=True)
+    is_principal = serializers.BooleanField(read_only=True)
+    origin = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        """ attributs serialized """
+        model = Branch
+        fields = [
+            'id',
+            'is_service',
+            'is_principal',
+            'label',
+            'origin',
+        ]
+
+    def get_origin(self, instance):
+        """ serialize origin """
+        if instance.is_principal is True:
+            id = instance.id
+            label = instance.label
+        else:
+            id = instance.origin.id
+            label = instance.origin.label
+        res = {
+            "id": id,
+            "label": label
+        }
+        return res
+
+
 class BranchStoreSerializer(serializers.HyperlinkedModelSerializer):
     """ logical validataion for add branch """
     id = serializers.CharField(read_only=True)
@@ -74,10 +107,16 @@ class BranchStoreSerializer(serializers.HyperlinkedModelSerializer):
         """ check logical validation """
         firm = Firm.objects.get(id=data['firm_id'])
         origin = Branch.objects.get(id=data['origin_id'])
+        branchs_visibles = self.context['queryset']
+        if origin not in branchs_visibles:
+            raise serializers.ValidationError(
+                detail='origin not found',
+                code=-1
+            )
         if firm != origin.firm:
             raise serializers.ValidationError(
-                detail='firm_id and origin_id not found',
-                code=-1
+                detail='not found',
+                code=-2
             )
         try:
             Branch.objects.get(label=data['label'].upper(), firm=firm)
@@ -240,7 +279,7 @@ class BranchRestoreSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Branch
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """
@@ -255,5 +294,35 @@ class BranchRestoreSerializer(serializers.HyperlinkedModelSerializer):
                 'cant not restore this branch ' +
                 'because this branch has not ' +
                 'a valid origin'
+            )
+        return data
+
+
+class BranchServiceSerializer(serializers.HyperlinkedModelSerializer):
+    """ logical validataion to serializer service of branch """
+    id = serializers.CharField(read_only=True)
+
+    class Meta:
+        """ attributs serialized """
+        model = Branch
+        fields = ["id"]
+
+    def validate(self, data):
+        """ check logical validation """
+        branch = self.context['branch']
+        try:
+            service = branch.service
+            if self.context["request"].infoUser[
+                'user'
+            ]['is_superuser'] is False:
+                if service.is_active is False:
+                    raise serializers.ValidationError(
+                        detail='service is not availlable',
+                        code=-2
+                    )
+        except AttributeError:
+            raise serializers.ValidationError(
+                detail='service not found',
+                code=-1
             )
         return data
