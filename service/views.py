@@ -11,6 +11,7 @@ from service.serializers import (
     ServiceStoreSerializer, ServiceDetailSerializer,
     ServiceDestroySerializer, ServiceRestoreSerializer
 )
+from function.serializers import FunctionStoreSerializer
 
 from branch.models import Branch
 from service.models import Service
@@ -21,6 +22,7 @@ from service.permissions import (
     IsAddService, IsChangeService, IsDestroyService, IsRestoreService,
     IsViewAllService, IsViewDetailService
 )
+from function.permissions import IsViewAllFunction
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -46,6 +48,8 @@ class ServiceViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsDestroyService]
         elif self.action == 'restore':
             self.permission_classes = [IsRestoreService]
+        elif self.action == 'functions':
+            self.permission_classes = [IsViewAllFunction]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -178,4 +182,33 @@ class ServiceViewSet(viewsets.ModelViewSet):
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['get'])
+    def functions(self, request, pk):
+        """ listing of functions's service """
+        service = self.get_object()
+        if self.request.infoUser['user']['is_superuser'] is True:
+            functions = service.functions.all()
+        else:
+            functions = service.functions.filter(is_active=True)
+        queryset = self.filter_queryset(functions)
+        page = self.paginate_queryset(queryset=queryset)
+        if page is not None:
+            serializer = FunctionStoreSerializer(
+                page,
+                many=True,
+                context={
+                    "request": request,
+                    "queryset": queryset
+                }
+            )
+            return self.get_paginated_response(serializer.data)
+        return Response(
+                FunctionStoreSerializer(
+                    functions,
+                    context={"request": request, "queryset": queryset},
+                    many=True
+                ).data,
+                status=status.HTTP_200_OK
             )

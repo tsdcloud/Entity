@@ -11,7 +11,7 @@ class FunctionStoreSerializer(serializers.HyperlinkedModelSerializer):
     is_active = serializers.BooleanField(read_only=True)
     service = serializers.SerializerMethodField(read_only=True)
     service_id = serializers.CharField(write_only=True, max_length=1000)
-    description = serializers.CharField(required=False, max_length=2000)
+    description = serializers.CharField(required=True, max_length=2000)
 
     class Meta:
         """ attributs serialized """
@@ -53,6 +53,17 @@ class FunctionStoreSerializer(serializers.HyperlinkedModelSerializer):
     def validate(self, data):
         service = Service.objects.get(id=data['service_id'])
         firm = service.branch.firm
+        request = self.context['request']
+        is_superuser = request.infoUser['user']['is_superuser']
+        firms_visibles = Employee.firms_visibles(
+            user=request.infoUser['uuid'],
+            is_superuser=is_superuser
+        )
+        if firm not in firms_visibles:
+            raise serializers.ValidationError(
+                detail='no found',
+                code=-2
+            )
         try:
             Function.objects.get(
                 name=data['name'].upper(),
@@ -103,8 +114,14 @@ class FunctionDetailSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_service_id(self, value):
         """ check validity of service_id """
+        function = self.context['function']
         try:
-            Service.objects.get(id=value, is_active=True)
+            service = Service.objects.get(id=value, is_active=True)
+            if service.branch.firm != function.service.branch.firm:
+                raise serializers.ValidationError(
+                    detail='no found',
+                    code=-2
+                )
         except Service.DoesNotExist:
             raise serializers.ValidationError(
                 detail='service not found',
@@ -128,13 +145,13 @@ class FunctionDestroySerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Function
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """
         function = self.context['function']
         employees = Employee.objects.filter(
-            function=function,
+            functions=function,
             is_active=True
         )
         if len(employees) != 0:
@@ -152,12 +169,12 @@ class FunctionRestoreSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Function
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """
         function = self.context['function']
-        if function.service.is_service is False:
+        if function.service.is_active is False:
             raise serializers.ValidationError(
                 'cant not restore this function ' +
                 'because his service is not available'

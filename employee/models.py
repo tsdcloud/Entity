@@ -191,6 +191,18 @@ class Employee(BaseUUIDModel):
                 pass
         return services
 
+    @staticmethod
+    def functions_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Function.objects.all()
+        else:
+            services = Employee.services_visibles(user=user)
+            functions = []
+            for service in services:
+                for function in service.functions.filter(is_active=True):
+                    functions.append(function)
+        return functions
+
 
 class HEmployee(BaseHistoryModel):
     employee = models.ForeignKey(

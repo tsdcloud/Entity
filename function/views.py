@@ -14,6 +14,7 @@ from function.serializers import (
 
 from function.models import Function
 from service.models import Service
+from employee.models import Employee
 
 from common.permissions import IsDeactivate
 from function.permissions import (
@@ -55,10 +56,10 @@ class FunctionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """ define queryset """
-        if self.request.infoUser['user']['is_superuser'] is True:
-            queryset = Function.objects.all()
-        else:
-            queryset = Function.objects.filter(is_active=True)
+        queryset = Employee.functions_visibles(
+            user=self.request.infoUser['uuid'],
+            is_superuser=self.request.infoUser['user']['is_superuser']
+        )
         return queryset
 
     def get_object(self):
@@ -72,7 +73,10 @@ class FunctionViewSet(viewsets.ModelViewSet):
 
     def create(self, request):
         """ add function """
-        serializer = FunctionStoreSerializer(data=request.data)
+        serializer = FunctionStoreSerializer(
+            data=request.data,
+            context={"request": request, "queryset": self.get_queryset()}
+        )
         if serializer.is_valid():
             try:
                 service = Service.readByToken(
@@ -88,7 +92,13 @@ class FunctionViewSet(viewsets.ModelViewSet):
                 function = None
 
             return Response(
-                FunctionStoreSerializer(function).data,
+                FunctionStoreSerializer(
+                    function,
+                    context={
+                        "request": request,
+                        "queryset": self.get_queryset()
+                    }
+                ).data,
                 status=status.HTTP_201_CREATED
             )
         else:
@@ -129,7 +139,7 @@ class FunctionViewSet(viewsets.ModelViewSet):
     def destroy(self, request, pk):
         function = self.get_object()
         serializer = FunctionDestroySerializer(
-            data=request.data,
+            function,
             context={"request": request, "function": function}
         )
         if serializer.is_valid():
@@ -159,7 +169,7 @@ class FunctionViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             function.restore(user=request.infoUser.get('uuid'))
             return Response(
-                    FunctionRestoreSerializer(
+                    FunctionDetailSerializer(
                         function,
                         context={"request": request, "function": function}
                     ).data,

@@ -58,7 +58,7 @@ class Function(BaseUUIDModel):
 
                 Function.insertHistory(
                     function=function, operation=1, user=user)
-            return service
+            return function
         except DatabaseError:
             return None
 
