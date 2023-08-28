@@ -9,7 +9,11 @@ from firm.models import Firm
 class Rank(BaseUUIDModel):
     label = models.CharField(max_length=150)
     power = models.IntegerField()
-    firm = models.ForeignKey(Firm, on_delete=models.CASCADE)
+    firm = models.ForeignKey(
+        Firm,
+        on_delete=models.RESTRICT,
+        related_name="ranks"
+    )
 
     def __str__(self):
         return self.label

@@ -203,6 +203,19 @@ class Employee(BaseUUIDModel):
                     functions.append(function)
         return functions
 
+    @staticmethod
+    def ranks_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Rank.objects.all()
+        else:
+            firms = Employee.firms_visibles(user=user, is_superuser=False)
+            ranks = []
+            for firm in firms:
+                all_firm_rank = firm.ranks.filter(is_active=True)
+                for item in all_firm_rank:
+                    ranks.append(item)
+        return ranks
+
 
 class HEmployee(BaseHistoryModel):
     employee = models.ForeignKey(

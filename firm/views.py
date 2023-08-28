@@ -10,11 +10,13 @@ from rest_framework.decorators import action
 from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 from branch.serializers import BranchPartialSerializer
 from service.serializers import ServiceStoreSerializer
+from rank.serializers import RankStoreSerializer
 
 from firm.models import Firm
 from branch.models import Branch
 from employee.models import Employee
 from service.models import Service
+from rank.models import Rank
 
 from common.permissions import IsDeactivate
 from . permissions import (
@@ -23,6 +25,7 @@ from . permissions import (
 )
 from branch.permissions import IsViewAllBranch
 from service.permissions import IsViewAllService
+from rank.permissions import IsViewAllRank
 
 
 class FirmViewSet(viewsets.ModelViewSet):
@@ -52,6 +55,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsViewAllBranch]
         elif self.action == 'services':
             self.permission_classes = [IsViewAllService]
+        elif self.action == 'ranks':
+            self.permission_classes = [IsViewAllRank]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -232,6 +237,33 @@ class FirmViewSet(viewsets.ModelViewSet):
         return Response(
                 ServiceStoreSerializer(
                     services,
+                    context={"request": request},
+                    many=True
+                ).data,
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['get'])
+    def ranks(self, request, pk):
+        """ listing of ranks's firm """
+        firm = self.get_object()
+        if self.request.infoUser['user']['is_superuser'] is True:
+            ranks = Rank.objects.filter(
+                firm=firm
+            )
+        else:
+            ranks = Rank.objects.filter(
+                firm=firm,
+                is_active=True
+            )
+        queryset = self.filter_queryset(ranks)
+        page = self.paginate_queryset(queryset=queryset)
+        if page is not None:
+            serializer = RankStoreSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        return Response(
+                RankStoreSerializer(
+                    ranks,
                     context={"request": request},
                     many=True
                 ).data,

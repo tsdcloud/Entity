@@ -14,6 +14,7 @@ from rank.serializers import (
 
 from rank.models import Rank
 from firm.models import Firm
+from employee.models import Employee
 
 from common.permissions import IsDeactivate
 from rank.permissions import (
@@ -58,7 +59,10 @@ class RankViewSet(viewsets.ModelViewSet):
         if self.request.infoUser['user']['is_superuser'] is True:
             queryset = Rank.objects.all()
         else:
-            queryset = Rank.objects.filter(is_active=True)
+            queryset = Employee.ranks_visibles(
+                user=self.request.infoUser.get('uuid'),
+                is_superuser=False
+            )
         return queryset
 
     def get_object(self):
@@ -72,7 +76,10 @@ class RankViewSet(viewsets.ModelViewSet):
 
     def create(self, request):
         """ add rank """
-        serializer = RankStoreSerializer(data=request.data)
+        serializer = RankStoreSerializer(
+            data=request.data,
+            context={"request": request}
+        )
         if serializer.is_valid():
             try:
                 firm = Firm.readByToken(
@@ -87,7 +94,12 @@ class RankViewSet(viewsets.ModelViewSet):
                 rank = None
 
             return Response(
-                RankStoreSerializer(rank).data,
+                RankStoreSerializer(
+                    rank,
+                    context={
+                        "request": request
+                    }
+                ).data,
                 status=status.HTTP_201_CREATED
             )
         else:

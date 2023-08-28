@@ -24,7 +24,7 @@ class RankStoreSerializer(serializers.HyperlinkedModelSerializer):
             'id'
         ]
 
-    def get_firme(self, instance):
+    def get_firm(self, instance):
         return {
             "id": instance.firm.id,
             "business_name": instance.firm.business_name,
@@ -52,6 +52,17 @@ class RankStoreSerializer(serializers.HyperlinkedModelSerializer):
     def validate(self, data):
         firm = Firm.objects.get(id=data['firm_id'])
         label = data['label']
+        request = self.context['request']
+        is_superuser = request.infoUser['user']['is_superuser']
+        firms_possibles = Employee.firms_visibles(
+            user=request.infoUser['uuid'],
+            is_superuser=is_superuser
+        )
+        if firm not in firms_possibles:
+            raise serializers.ValidationError(
+                detail="firm not found",
+                code=-2
+            )
         try:
             Rank.objects.get(
                 label=label.upper(),
@@ -97,7 +108,8 @@ class RankDetailSerializer(serializers.HyperlinkedModelSerializer):
                     detail='name already exists', code=-1
                 )
         except Rank.DoesNotExist:
-            return value
+            pass
+        return value
 
     def validate_power(self, value):
         """ check validity of power """
@@ -115,7 +127,7 @@ class RankDestroySerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Rank
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """
@@ -139,12 +151,12 @@ class RankRestoreSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Rank
-        fields = "id"
+        fields = ["id"]
 
     def validate(self, data):
         """ check logical validation """
         rank = self.context['rank']
-        if rank.firm.is_service is False:
+        if rank.firm.is_active is False:
             raise serializers.ValidationError(
                 'cant not restore this rank ' +
                 'because her firm is not available'
