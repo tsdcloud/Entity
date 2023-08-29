@@ -16,7 +16,7 @@ class Employee(BaseUUIDModel):
     matricule = models.CharField(max_length=50)
     category = models.IntegerField(choices=EMPLOYEE_CATEGORIE)
     rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
-    functions = models.ManyToManyField(Function)
+    functions = models.ManyToManyField(Function, null=True)
 
     def __str__(self):
         return self.matricule
@@ -28,12 +28,12 @@ class Employee(BaseUUIDModel):
         hemployee.matricule = employee.matricule
         hemployee.category = employee.category
         hemployee.rank = employee.rank
-        hemployee.functions = employee.functions
         hemployee.is_active = employee.is_active
         hemployee.date = employee.date
         hemployee.operation = operation
         hemployee.user = user
         hemployee.save()
+        hemployee.functions.set(employee.functions.all())
 
     @staticmethod
     def create(
@@ -47,33 +47,35 @@ class Employee(BaseUUIDModel):
         try:
             employee = Employee.objects.get(
                 user=user1,
-                function__service__branch__firm=function.service.branch.firm)
+                functions__service__branch__firm=function.service.branch.firm)
             employee.is_active = True
             employee.functions.clear()
         except Employee.DoesNotExist:
             employee = Employee()
             employee.user = user1
-            fin = datetime.datetime.now().strftime("%m%Y")
+            fin = datetime.datetime.now().strftime(".%m.%Y")
             matricule = rank.firm.acronym + str(
                 101 + len(
-                    Employee.objects.select_for_update(
+                    Employee.objects.filter(
                         matricule__contains=fin
                     )
                 )
             ) + "N" + fin
             employee.matricule = matricule
+
         employee.category = category
         employee.rank = rank
-        employee.functions.add(function)
-        employee.user = user
+        employee.user = user1
 
         try:
             with transaction.atomic():
                 employee.save()
+                employee.functions.set([function])
+                employee.save()
 
                 Employee.insertHistory(
                     employee=employee, operation=1, user=user)
-            return employee
+                return employee
         except DatabaseError:
             return None
 
@@ -118,7 +120,7 @@ class Employee(BaseUUIDModel):
         try:
             with transaction.atomic():
                 self.save()
-                Rank.insertHistory(rank=self, operation=4, user=user)
+                Employee.insertHistory(employee=self, operation=4, user=user)
             return self
         except DatabaseError:
             return None
@@ -158,7 +160,8 @@ class Employee(BaseUUIDModel):
             firms = []
             for employee in employees:
                 if employee.rank.firm.is_active is True:
-                    firms.append(employee.rank.firm)
+                    if employee.rank.firm not in firms:
+                        firms.append(employee.rank.firm)
             return firms
 
     @staticmethod
@@ -216,6 +219,18 @@ class Employee(BaseUUIDModel):
                     ranks.append(item)
         return ranks
 
+    @staticmethod
+    def employees_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Employee.objects.all()
+        else:
+            employees = []
+            ranks = Employee.ranks_visibles(user=user, is_superuser=False)
+            for rank in ranks:
+                for item in Employee.objects.filter(is_active=True, rank=rank):
+                    employees.append(item)
+            return employees
+
 
 class HEmployee(BaseHistoryModel):
     employee = models.ForeignKey(
@@ -227,4 +242,4 @@ class HEmployee(BaseHistoryModel):
     user1 = models.CharField(max_length=1000)
     category = models.IntegerField(choices=EMPLOYEE_CATEGORIE)
     rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
-    functions = models.ManyToManyField(Function)
+    functions = models.ManyToManyField(Function, null=True)

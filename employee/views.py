@@ -54,7 +54,10 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         if self.request.infoUser['user']['is_superuser'] is True:
             queryset = Employee.objects.all()
         else:
-            queryset = Employee.objects.filter(is_active=True)
+            queryset = Employee.employees_visibles(
+                user=self.request.infoUser.get('uuid'),
+                is_superuser=False
+            )
         return queryset
 
     def get_object(self):
@@ -68,7 +71,12 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
     def create(self, request):
         """ add employee """
-        serializer = EmployeeStoreSerializer(data=request.data)
+        serializer = EmployeeStoreSerializer(
+            data=request.data,
+            context={
+                "request": request
+            }
+        )
         if serializer.is_valid():
             try:
                 rank = Rank.readByToken(
@@ -88,7 +96,12 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 employee = None
 
             return Response(
-                EmployeeStoreSerializer(employee).data,
+                EmployeeStoreSerializer(
+                    employee,
+                    context={
+                        "request": request
+                    }
+                ).data,
                 status=status.HTTP_201_CREATED
             )
         else:
@@ -136,7 +149,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             EmployeeDetailSerializer(
                 employee,
                 context={"request": request, "employee": employee}
-            )
+            ).data,
+            status=status.HTTP_200_OK
         )
 
     @action(detail=True, methods=['post'])
@@ -147,5 +161,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             EmployeeDetailSerializer(
                 employee,
                 context={"request": request, "employee": employee}
-            )
+            ).data,
+            status=status.HTTP_200_OK
         )

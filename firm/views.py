@@ -11,6 +11,7 @@ from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 from branch.serializers import BranchPartialSerializer
 from service.serializers import ServiceStoreSerializer
 from rank.serializers import RankStoreSerializer
+from employee.serializers import EmployeeStoreSerializer
 
 from firm.models import Firm
 from branch.models import Branch
@@ -26,6 +27,7 @@ from . permissions import (
 from branch.permissions import IsViewAllBranch
 from service.permissions import IsViewAllService
 from rank.permissions import IsViewAllRank
+from employee.permissions import IsViewAllEmployee
 
 
 class FirmViewSet(viewsets.ModelViewSet):
@@ -57,6 +59,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsViewAllService]
         elif self.action == 'ranks':
             self.permission_classes = [IsViewAllRank]
+        elif self.action == 'employees':
+            self.permission_classes = [IsViewAllEmployee]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -264,6 +268,37 @@ class FirmViewSet(viewsets.ModelViewSet):
         return Response(
                 RankStoreSerializer(
                     ranks,
+                    context={"request": request},
+                    many=True
+                ).data,
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['get'])
+    def employees(self, request, pk):
+        """ listing of employees's firm """
+        firm = self.get_object()
+        if self.request.infoUser['user']['is_superuser'] is True:
+            employees = Employee.objects.filter(
+                rank__firm=firm
+            )
+        else:
+            employees = Employee.objects.filter(
+                rank__firm=firm,
+                is_active=True
+            )
+        queryset = self.filter_queryset(employees)
+        page = self.paginate_queryset(queryset=queryset)
+        if page is not None:
+            serializer = EmployeeStoreSerializer(
+                page,
+                many=True,
+                context={"request": request}
+            )
+            return self.get_paginated_response(serializer.data)
+        return Response(
+                EmployeeStoreSerializer(
+                    employees,
                     context={"request": request},
                     many=True
                 ).data,

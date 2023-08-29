@@ -16,7 +16,7 @@ class EmployeeStoreSerializer(serializers.HyperlinkedModelSerializer):
     rank_id = serializers.CharField(max_length=1000, write_only=True)
     rank = serializers.SerializerMethodField(read_only=True)
     function_id = serializers.CharField(max_length=1000, write_only=True)
-    function = serializers.SerializerMethodField(read_only=True)
+    functions = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         """ attributs serialized """
@@ -30,7 +30,7 @@ class EmployeeStoreSerializer(serializers.HyperlinkedModelSerializer):
             'rank_id',
             'rank',
             'function_id',
-            'function'
+            'functions'
         ]
 
     def get_user(self, instance):
@@ -46,12 +46,15 @@ class EmployeeStoreSerializer(serializers.HyperlinkedModelSerializer):
             "power": instance.rank.power
         }
 
-    def get_function(self, instance):
-        return {
-            "id": instance.function.id,
-            "label": instance.function.label,
-            "power": instance.function.power
-        }
+    def get_functions(self, instance):
+        res = []
+        for item in instance.functions.all():
+            res.append({
+                "id": item.id,
+                "name": item.name,
+                "power": item.power
+            })
+        return res
 
     def validate_user_id(self, value):
         """ check validity of user_id """
@@ -93,20 +96,25 @@ class EmployeeStoreSerializer(serializers.HyperlinkedModelSerializer):
     def validate(self, data):
         function = Function.readByToken(token=data['function_id'])
         rank = Rank.readByToken(token=data['rank_id'])
-        user = Employee.get_user(
-            user=data['user_id'],
-            authorization=self.context['request'].headers.get(
-                'Authorization'
-            )
-        )
         if rank.firm != function.service.branch.firm:
             raise serializers.ValidationError(
                 detail='not found',
                 code=-2
             )
+        request = self.context['request']
+        is_superuser = request.infoUser['user']['is_superuser']
+        firms_possibles = Employee.firms_visibles(
+            user=request.infoUser['uuid'],
+            is_superuser=is_superuser
+        )
+        if rank.firm not in firms_possibles:
+            raise serializers.ValidationError(
+                detail="firm not found",
+                code=-2
+            )
         try:
             Employee.objects.get(
-                user=user['uuid'],
+                user=data['user_id'],
                 rank__firm=rank.firm, is_active=True
             )
             raise serializers.ValidationError(
@@ -126,7 +134,7 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
     rank_id = serializers.CharField(max_length=1000, write_only=True)
     rank = serializers.SerializerMethodField(read_only=True)
     function_id = serializers.CharField(max_length=1000, write_only=True)
-    function = serializers.SerializerMethodField(read_only=True)
+    functions = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         """ attributs serialized """
@@ -139,7 +147,7 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
             'rank_id',
             'rank',
             'function_id',
-            'function'
+            'functions'
         ]
 
     def get_user(self, instance):
@@ -155,12 +163,15 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
             "power": instance.rank.power
         }
 
-    def get_function(self, instance):
-        return {
-            "id": instance.function.id,
-            "label": instance.function.label,
-            "power": instance.function.power
-        }
+    def get_functions(self, instance):
+        res = []
+        for item in instance.functions.all():
+            res.append({
+                "id": item.id,
+                "name": item.name,
+                "power": item.power
+            })
+        return res
 
     def validate_rank_id(self, value):
         """ check validity of rank_id """
@@ -187,6 +198,11 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
     def validate(self, data):
         function = Function.readByToken(token=data['function_id'])
         rank = Rank.readByToken(token=data['rank_id'])
+        employee = self.context["employee"]
+        if employee.rank.firm != rank.firm:
+            raise serializers.ValidationError(
+                detail="firm not found"
+            )
         if rank.firm != function.service.branch.firm:
             raise serializers.ValidationError(
                 detail='not found',
