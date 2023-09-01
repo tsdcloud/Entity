@@ -137,12 +137,12 @@ class Employee(BaseUUIDModel):
         headers = {
             "Authorization": authorization
         }
-        url = "/profil/" + user + "/"
+        url = "/users/" + user + "/"
         conn.request("GET", url, payload, headers)
         response = conn.getresponse()
         dat = response.read()
         data = json.loads(dat)
-        return data if data.get('uuid', 0) != 0 else None
+        return data if data.get('id', 0) != 0 else None
 
     @classmethod
     def readByToken(cls, token: str, is_change=False):
