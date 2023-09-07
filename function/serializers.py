@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.auth.models import Permission
 
 from service.models import Service
 from employee.models import Employee
@@ -83,8 +84,9 @@ class FunctionDetailSerializer(serializers.HyperlinkedModelSerializer):
     is_active = serializers.BooleanField(read_only=True)
     date = serializers.DateTimeField(read_only=True)
     service = serializers.SerializerMethodField(read_only=True)
+    permissions = serializers.SerializerMethodField(read_only=True)
     service_id = serializers.CharField(write_only=True, max_length=1000)
-    description = serializers.CharField(required=False, max_length=2000)
+    description = serializers.CharField(required=True, max_length=2000)
 
     class Meta:
         """ attributs serialized """
@@ -96,6 +98,15 @@ class FunctionDetailSerializer(serializers.HyperlinkedModelSerializer):
             "id": instance.service.id,
             "name": instance.service.name
         }
+
+    def get_permissions(self, instance):
+        res = []
+        for permission in instance.permissions.all():
+            res.append({
+                "codename": permission.codename,
+                "desc": permission.name
+            })
+        return res
 
     def validate_name(self, value):
         """ check validity of name """
@@ -179,4 +190,29 @@ class FunctionRestoreSerializer(serializers.HyperlinkedModelSerializer):
                 'cant not restore this function ' +
                 'because his service is not available'
             )
+        return data
+
+
+class FunctionAddPermissionSerializer(serializers.HyperlinkedModelSerializer):
+    """ logical validataion for restore function """
+    id = serializers.CharField(read_only=True)
+    permissions = serializers.ListField(
+        child=serializers.CharField(max_length=1000),
+        allow_empty=True
+    )
+
+    class Meta:
+        """ attributs serialized """
+        model = Function
+        fields = ["id", "perimissions"]
+
+    def validate_permissions(self, data):
+        """ check logical validation """
+        for value in data:
+            try:
+                Permission.objects.get(codename=value)
+            except Permission.DoesNotExist:
+                raise serializers.ValidationError(
+                    detail="Permission not found"
+                )
         return data

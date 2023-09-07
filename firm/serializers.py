@@ -17,7 +17,7 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     tax_reporting_center = serializers.CharField(
         max_length=50, write_only=True)
     trade_register = serializers.CharField(
-        max_length=18, write_only=True)
+        max_length=18)
 
     class Meta:
         """ attributs serialized """

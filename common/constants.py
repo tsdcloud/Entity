@@ -4,7 +4,8 @@ H_OPERATION_CHOICE = [
     (1, 'CREATE'),
     (2, 'UPDATE'),
     (3, 'DELETE'),
-    (4, 'RESTORE')
+    (4, 'RESTORE'),
+    (5, 'PERMISSION')
 ]
 
 BOOLEAN_CHOICES = [(1, 'TRUE'), (2, 'FALSE')]

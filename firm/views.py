@@ -11,15 +11,16 @@ from firm.serializers import FirmStoreSerializer, FirmDetailSerializer
 from branch.serializers import BranchPartialSerializer
 from service.serializers import ServiceStoreSerializer
 from rank.serializers import RankStoreSerializer
-from employee.serializers import EmployeeStoreSerializer
-
+from employee.serializers import (
+    EmployeeDetailSerializer, EmployeeStoreSerializer
+)
 from firm.models import Firm
 from branch.models import Branch
 from employee.models import Employee
 from service.models import Service
 from rank.models import Rank
 
-from common.permissions import IsDeactivate
+from common.permissions import IsDeactivate, IsActivate
 from . permissions import (
     IsAddFirm, IsChangeFirm, IsDestroyFirm, IsRestoreFirm,
     IsViewAllFirm, IsViewDetailFirm
@@ -61,6 +62,8 @@ class FirmViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsViewAllRank]
         elif self.action == 'employees':
             self.permission_classes = [IsViewAllEmployee]
+        elif self.action == 'employee':
+            self.permission_classes = [IsActivate]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -107,10 +110,11 @@ class FirmViewSet(viewsets.ModelViewSet):
                             'unique_identifier_number'],
                         user=request.infoUser.get('uuid')
                     )
+                    b = Branch()
                     Branch.create(
                         label="principale",
                         firm=firm,
-                        origin=Branch(),
+                        origin=b,
                         is_principal=True,
                         user=request.infoUser.get('uuid')
                     )
@@ -201,6 +205,15 @@ class FirmViewSet(viewsets.ModelViewSet):
             branchs = Branch.objects.filter(
                 firm=firm,
                 is_active=True
+            )
+        if len(branchs) == 0:
+            b = Branch()
+            Branch.create(
+                label="principale",
+                firm=firm,
+                origin=b,
+                is_principal=True,
+                user=request.infoUser.get('id')
             )
         queryset = self.filter_queryset(branchs)
         page = self.paginate_queryset(queryset=queryset)
@@ -301,6 +314,27 @@ class FirmViewSet(viewsets.ModelViewSet):
                     employees,
                     context={"request": request},
                     many=True
+                ).data,
+                status=status.HTTP_200_OK
+            )
+
+    @action(detail=True, methods=['get'])
+    def employee(self, request, pk):
+        """ user employee """
+        try:
+            employee = Employee.objects.get(
+                user=self.request.infoUser['id'],
+                is_active=True
+            )
+        except Employee.DoesNotExist:
+            employee = None
+        return Response(
+                EmployeeDetailSerializer(
+                    employee,
+                    context={
+                        "request": request,
+                        "employee": employee
+                    }
                 ).data,
                 status=status.HTTP_200_OK
             )

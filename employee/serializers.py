@@ -135,6 +135,7 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
     rank = serializers.SerializerMethodField(read_only=True)
     function_id = serializers.CharField(max_length=1000, write_only=True)
     functions = serializers.SerializerMethodField(read_only=True)
+    permissions = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         """ attributs serialized """
@@ -147,7 +148,8 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
             'rank_id',
             'rank',
             'function_id',
-            'functions'
+            'functions',
+            'permissions'
         ]
 
     def get_user(self, instance):
@@ -169,7 +171,26 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
             res.append({
                 "id": item.id,
                 "name": item.name,
-                "power": item.power
+                "power": item.power,
+                "service": {
+                    "id": item.service.id,
+                    "name": item.service.name,
+                    "branch": {
+                        "id": item.service.branch.id,
+                        "label": item.service.branch.label,
+                        "origin": item.service.branch.origin
+                    }
+                }
+            })
+        return res
+
+    def get_permissions(self, instance):
+        res = []
+        for item in instance.permissions.all():
+            res.append({
+                "id": item.id,
+                "name": item.name,
+                "codename": item.codename
             })
         return res
 

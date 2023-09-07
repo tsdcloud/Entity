@@ -11,7 +11,7 @@ from firm.models import Firm
 class Branch(BaseUUIDModel):
     firm = models.ForeignKey(
         Firm, on_delete=models.RESTRICT, related_name="branchs")
-    label = models.CharField(unique=True, max_length=100)
+    label = models.CharField(max_length=100)
     origin = models.ForeignKey(
         "Branch",
         on_delete=models.RESTRICT, null=True)

@@ -2,6 +2,7 @@ from django.db import DatabaseError
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.http import Http404
+from django.contrib.auth.models import Permission
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -9,14 +10,15 @@ from rest_framework.decorators import action
 
 from function.serializers import (
     FunctionStoreSerializer, FunctionDetailSerializer,
-    FunctionDestroySerializer, FunctionRestoreSerializer
+    FunctionDestroySerializer, FunctionRestoreSerializer,
+    FunctionAddPermissionSerializer
 )
 
 from function.models import Function
 from service.models import Service
 from employee.models import Employee
 
-from common.permissions import IsDeactivate
+from common.permissions import IsDeactivate, IsAddPermission
 from function.permissions import (
     IsAddFunction, IsChangeFunction, IsDestroyFunction,
     IsRestoreFunction, IsViewAllFunction, IsViewDetailFunction
@@ -50,6 +52,8 @@ class FunctionViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsDestroyFunction]
         elif self.action == 'restore':
             self.permission_classes = [IsRestoreFunction]
+        elif self.action == 'permissions':
+            self.permission_classes = [IsAddPermission]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -57,8 +61,8 @@ class FunctionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """ define queryset """
         queryset = Employee.functions_visibles(
-            user=self.request.infoUser['uuid'],
-            is_superuser=self.request.infoUser['user']['is_superuser']
+            user=self.request.infoUser['id'],
+            is_superuser=self.request.infoUser['member']['is_superuser']
         )
         return queryset
 
@@ -86,7 +90,7 @@ class FunctionViewSet(viewsets.ModelViewSet):
                     power=serializer.validated_data['power'],
                     description=serializer.validated_data['description'],
                     service=service,
-                    user=request.infoUser.get('uuid')
+                    user=request.infoUser.get('id')
                 )
             except DatabaseError:
                 function = None
@@ -121,7 +125,7 @@ class FunctionViewSet(viewsets.ModelViewSet):
                 power=serializer.validated_data['power'],
                 description=serializer.validated_data['description'],
                 service=service,
-                user=request.infoUser.get('uuid')
+                user=request.infoUser.get('id')
             )
             return Response(
                 FunctionDetailSerializer(
@@ -144,7 +148,7 @@ class FunctionViewSet(viewsets.ModelViewSet):
         )
         if serializer.is_valid():
             function.delete(
-                user=request.infoUser.get('uuid')
+                user=request.infoUser.get('id')
             )
             return Response(
                 FunctionDetailSerializer(
@@ -167,7 +171,7 @@ class FunctionViewSet(viewsets.ModelViewSet):
             context={"request": request, "function": function}
         )
         if serializer.is_valid():
-            function.restore(user=request.infoUser.get('uuid'))
+            function.restore(user=request.infoUser.get('id'))
             return Response(
                     FunctionDetailSerializer(
                         function,
@@ -175,6 +179,35 @@ class FunctionViewSet(viewsets.ModelViewSet):
                     ).data,
                     status=status.HTTP_200_OK
                 )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def permissions(self, request, pk):
+        function = self.get_object()
+        serializer = FunctionAddPermissionSerializer(
+            data=request.data,
+        )
+        if serializer.is_valid():
+            permissions = []
+            for codename in serializer.validated_data['permissions']:
+                permissions.append(
+                    Permission.objects.get(codename=codename)
+                )
+            function.add_permission(
+                user=request.infoUser.get('id'),
+                permissions=permissions
+            )
+            return Response(
+                FunctionDetailSerializer(
+                    function,
+                    context={"request": request, "function": function}
+                ).data,
+                status=status.HTTP_200_OK
+            )
         else:
             return Response(
                 serializer.errors,

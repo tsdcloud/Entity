@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import Permission
 from django.db import DatabaseError, transaction
 from function.models import Function
 from rank.models import Rank
@@ -16,7 +17,8 @@ class Employee(BaseUUIDModel):
     matricule = models.CharField(max_length=50)
     category = models.IntegerField(choices=EMPLOYEE_CATEGORIE)
     rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
-    functions = models.ManyToManyField(Function, null=True)
+    functions = models.ManyToManyField(Function)
+    permissions = models.ManyToManyField(Permission)
 
     def __str__(self):
         return self.matricule
@@ -34,6 +36,7 @@ class Employee(BaseUUIDModel):
         hemployee.user = user
         hemployee.save()
         hemployee.functions.set(employee.functions.all())
+        hemployee.permissions.set(employee.permissions.all())
 
     @staticmethod
     def create(
@@ -243,3 +246,4 @@ class HEmployee(BaseHistoryModel):
     category = models.IntegerField(choices=EMPLOYEE_CATEGORIE)
     rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
     functions = models.ManyToManyField(Function, null=True)
+    permissions = models.ManyToManyField(Permission)

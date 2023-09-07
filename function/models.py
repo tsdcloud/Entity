@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import Permission
 from django.db import DatabaseError, transaction
 from common.models import BaseHistoryModel, BaseUUIDModel
 
@@ -14,6 +15,7 @@ class Function(BaseUUIDModel):
         on_delete=models.RESTRICT,
         related_name="functions"
     )
+    permissions = models.ManyToManyField(Permission)
 
     def __str__(self):
         return self.name
@@ -30,6 +32,7 @@ class Function(BaseUUIDModel):
         hfunction.operation = operation
         hfunction.user = user
         hfunction.save()
+        hfunction.permissions.set(function.permissions.all())
 
     @staticmethod
     def create(
@@ -109,6 +112,11 @@ class Function(BaseUUIDModel):
         except DatabaseError:
             return None
 
+    def add_permission(self, user: str, permissions):
+        self.permissions.set(permissions)
+        Function.insertHistory(function=self, user=user, operation=5)
+        return self
+
     @classmethod
     def readByToken(cls, token: str, is_change=False):
         """ take an function from token"""
@@ -131,3 +139,4 @@ class HFunction(BaseHistoryModel):
         Service,
         on_delete=models.RESTRICT,
     )
+    permissions = models.ManyToManyField(Permission)
