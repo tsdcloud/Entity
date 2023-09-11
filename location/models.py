@@ -1,60 +1,111 @@
-import uuid
-import os
-import datetime
-
-from django.conf import settings
-from django.urls import reverse
-from django.utils.translation import ugettext_lazy as _, get_language
-from django.template.defaultfilters import slugify
-
+from django.utils.translation import ugettext_lazy as _
+from django.db import DatabaseError, transaction
 from django.db import models
+from firm.models import Firm
+from function.models import Function
+from common.constants import PARTICULAR_PORTEE
 
 # Create your models here.
-from common.models import BaseUUIDModel
-from firm.models import Firm
+from common.models import BaseUUIDModel, BaseHistoryModel
 
 
-class Country(models.Model):
-    name = models.CharField(_("Country name"), max_length=150)
-    iso2 = models.CharField(_("iso2 code"), max_length=2, db_index=True)
-    iso3 = models.CharField(_("iso3 code"), max_length=3, db_index=True)
-    lang = models.CharField(_("Language"), max_length=15, choices=settings.LANGUAGES, db_index=True)
-    is_active = models.BooleanField(_("Is active ?"), default=True, db_index=True)
+class PORTEE(models.Model):
+    country = models.IntegerField(choices=PARTICULAR_PORTEE)
+    region = models.IntegerField(choices=PARTICULAR_PORTEE)
+    departement = models.IntegerField(choices=PARTICULAR_PORTEE)
+    municipality = models.IntegerField(choices=PARTICULAR_PORTEE)
+    village = models.IntegerField(choices=PARTICULAR_PORTEE)
+    function = models.ForeignKey(Function, on_delete=models.RESTRICT)
 
     def __str__(self):
-        return self.name
+        return self.function.name
 
     class Meta:
-        unique_together = (
-            ('name', 'lang'),
-            ('iso2', 'lang'),
-            ('iso3', 'lang'),
-        )
         verbose_name = _("Country")
         verbose_name_plural = _("Countries")
 
 
-class Region(models.Model):
-    name = models.CharField(_("Region"), max_length=150)
-    country = models.ForeignKey(Country, db_index=True, on_delete=models.CASCADE)
-    lang = models.CharField(_("Language"), max_length=15, choices=settings.LANGUAGES, db_index=True)
+class Link(models.Model):
+    key = models.IntegerField(choices=PARTICULAR_PORTEE)
+    value = models.CharField(max_length=1000)
+    function = models.ForeignKey(Function, on_delete=models.RESTRICT)
+
+    def __str__(self):
+        return self.function.name
+
+    class Meta:
+        verbose_name = _("Country")
+        verbose_name_plural = _("Countries")
+
+
+class Country(BaseUUIDModel):
+    name = models.CharField(_("Country name"), max_length=150)
 
     def __str__(self):
         return self.name
 
     class Meta:
-        #unique_together = (
-        #    ('name', 'country'),
-        #    ('iso2', 'lang'),
-        #    ('iso3', 'lang'),
-        #)
+        ordering = ["name"]
+
+    def insertHistory(country: "Country", user: str, operation: int):
+        hcountry = HCountry()
+        hcountry.country = country
+        hcountry.name = country.name
+        hcountry.is_active = country.is_active
+        hcountry.date = country.date
+        hcountry.operation = operation
+        hcountry.user = user
+        hcountry.save()
+
+    @staticmethod
+    def create(name: str, user: str):
+        """ add country """
+        try:
+            country = Country.objects.get(name=name.upper())
+        except Country.DoesNotExist:
+            country = Country()
+            country.name = name.upper()
+        country.is_active = True
+
+        try:
+            with transaction.atomic():
+                country.save()
+
+                Country.insertHistory(country=country, operation=1, user=user)
+            return country
+        except DatabaseError:
+            return None
+
+
+class HCountry(BaseHistoryModel):
+    country = models.ForeignKey(
+        Country,
+        on_delete=models.RESTRICT,
+        related_name="hcontries",
+        editable=False
+    )
+    name = models.CharField(_("Country name"), max_length=150)
+
+    def __str__(self):
+        return self.name
+
+
+
+class Region(models.Model):
+    name = models.CharField(_("Region"), max_length=150)
+    country = models.ForeignKey(Country, db_index=True, on_delete=models.RESTRICT)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
         verbose_name = _("Region")
         verbose_name_plural = _("Regions")
 
 
 class Department(models.Model):
     name = models.CharField(_("Department"), max_length=150)
-    region = models.ForeignKey(Region, db_index=True, on_delete=models.CASCADE)
+    region = models.ForeignKey(Region, db_index=True, on_delete=models.RESTRICT)
 
     def __str__(self):
         return self.name
@@ -66,7 +117,7 @@ class Department(models.Model):
 
 class Municipality(models.Model):
     name = models.CharField(_("Municipality"), max_length=150)
-    department = models.ForeignKey(Department, db_index=True, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, db_index=True, on_delete=models.RESTRICT)
 
     def __str__(self):
         return self.name
@@ -78,7 +129,7 @@ class Municipality(models.Model):
 
 class Village(models.Model):
     name = models.CharField(_("Village"), max_length=150)
-    department = models.ForeignKey(Municipality, db_index=True, on_delete=models.CASCADE)
+    department = models.ForeignKey(Municipality, db_index=True, on_delete=models.RESTRICT)
 
     def __str__(self):
         return self.name
@@ -89,10 +140,9 @@ class Village(models.Model):
 
 
 class Location(BaseUUIDModel):
-    firm = models.ForeignKey(Firm, db_index=True, on_delete=models.CASCADE)
+    firm = models.ForeignKey(Firm, db_index=True, on_delete=models.RESTRICT)
     name = models.CharField(_("Location"), max_length=150, db_index=True)
-    village = models.ForeignKey(Village, db_index=True, on_delete=models.CASCADE)
+    village = models.ForeignKey(Village, db_index=True, on_delete=models.RESTRICT)
 
     def __str__(self):
         return self.name
-

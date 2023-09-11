@@ -24,3 +24,13 @@ EMPLOYEE_CATEGORIE = [
     (11, "CATEGORIE 11"),
     (12, "CATEGORIE 12")
 ]
+
+PARTICULAR_PERMISSIONS = [
+    'add_entity',
+    'add_location'
+]
+
+PARTICULAR_PORTEE = [
+    (1, 'ALL'),
+    (2, 'FIXE')
+]

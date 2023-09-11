@@ -6,6 +6,7 @@ from service import views as sviews
 from function import views as ftviews
 from rank import views as rviews
 from employee import views as eviews
+from location import views as lviews
 
 from common.router import OptionalSlashRouter
 
@@ -16,6 +17,7 @@ router.register(r'service', sviews.ServiceViewSet, basename='service')
 router.register(r'function', ftviews.FunctionViewSet, basename='function')
 router.register(r'rank', rviews.RankViewSet, basename='rank')
 router.register(r'employee', eviews.EmployeeViewSet, basename='employee')
+router.register(r'country', lviews.CountryViewSet, basename='country')
 
 urlpatterns = [
     path('', include(router.urls)),
