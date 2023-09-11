@@ -53,3 +53,28 @@ class CountryDetailSerializer(serializers.HyperlinkedModelSerializer):
                 return value
         except Country.DoesNotExist:
             return value
+
+
+class CountryDestroySerializer(serializers.HyperlinkedModelSerializer):
+    """ logical validataion for destroy country """
+    id = serializers.CharField(read_only=True)
+
+    class Meta:
+        """ attributs serialized """
+        model = Country
+        fields = [
+            'name',
+            'id'
+        ]
+
+    def validate_name(self, value):
+        """ check validity of name """
+        country = self.context['country']
+        regions = country.regions.filter(is_active=True)
+        if len(regions) != 0:
+            raise serializers.ValidationError(
+                detail="regions already exists",
+                code="regions already exists"
+            )
+        else:
+            return value

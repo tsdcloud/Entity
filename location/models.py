@@ -88,6 +88,31 @@ class Country(BaseUUIDModel):
         except DatabaseError:
             return None
 
+    def delete(self, user: str):
+        """ delete country """
+        self.is_active = False
+
+        try:
+            with transaction.atomic():
+                self.save()
+
+                Country.insertHistory(country=self, operation=3, user=user)
+            return self
+        except DatabaseError:
+            return None
+
+    def restore(self, user: str):
+        """ restore country """
+        self.is_active = True
+
+        try:
+            with transaction.atomic():
+                self.save()
+                Country.insertHistory(country=self, operation=4, user=user)
+            return self
+        except DatabaseError:
+            return None
+
 
 class HCountry(BaseHistoryModel):
     country = models.ForeignKey(
@@ -102,10 +127,14 @@ class HCountry(BaseHistoryModel):
         return self.name
 
 
-
 class Region(models.Model):
     name = models.CharField(_("Region"), max_length=150)
-    country = models.ForeignKey(Country, db_index=True, on_delete=models.RESTRICT)
+    country = models.ForeignKey(
+        Country,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="regions"
+    )
 
     def __str__(self):
         return self.name
@@ -117,7 +146,12 @@ class Region(models.Model):
 
 class Department(models.Model):
     name = models.CharField(_("Department"), max_length=150)
-    region = models.ForeignKey(Region, db_index=True, on_delete=models.RESTRICT)
+    region = models.ForeignKey(
+        Region,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="departments"
+    )
 
     def __str__(self):
         return self.name
@@ -129,7 +163,12 @@ class Department(models.Model):
 
 class Municipality(models.Model):
     name = models.CharField(_("Municipality"), max_length=150)
-    department = models.ForeignKey(Department, db_index=True, on_delete=models.RESTRICT)
+    department = models.ForeignKey(
+        Department,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="municipalities"
+    )
 
     def __str__(self):
         return self.name
@@ -141,7 +180,12 @@ class Municipality(models.Model):
 
 class Village(models.Model):
     name = models.CharField(_("Village"), max_length=150)
-    department = models.ForeignKey(Municipality, db_index=True, on_delete=models.RESTRICT)
+    department = models.ForeignKey(
+        Municipality,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="villages"
+    )
 
     def __str__(self):
         return self.name
@@ -152,9 +196,19 @@ class Village(models.Model):
 
 
 class Location(BaseUUIDModel):
-    firm = models.ForeignKey(Firm, db_index=True, on_delete=models.RESTRICT)
+    firm = models.ForeignKey(
+        Firm,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="locations"
+    )
     name = models.CharField(_("Location"), max_length=150, db_index=True)
-    village = models.ForeignKey(Village, db_index=True, on_delete=models.RESTRICT)
+    village = models.ForeignKey(
+        Village,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="locations"
+    )
 
     def __str__(self):
         return self.name

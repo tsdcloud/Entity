@@ -14,13 +14,12 @@ from function.serializers import (
     FunctionAddPermissionSerializer
 )
 
-from service.models import Service
-
 from common.permissions import IsDeactivate, IsActivate
 
 from location.serializers import (
     CountryStoreSerializer,
-    CountryDetailSerializer
+    CountryDetailSerializer,
+    CountryDestroySerializer
 )
 from location.permissions import (
     IsAddLocation
@@ -45,7 +44,7 @@ class CountryViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """ define permissions """
-        if self.action in ["create", "update"]:
+        if self.action in ["create", "update", "destroy"]:
             self.permission_classes = [IsAddLocation]
         elif self.action in ["list", "retrieve"]:
             self.permission_classes = [IsActivate]
@@ -116,19 +115,19 @@ class CountryViewSet(viewsets.ModelViewSet):
             )
 
     def destroy(self, request, pk):
-        function = self.get_object()
-        serializer = FunctionDestroySerializer(
-            function,
-            context={"request": request, "function": function}
+        country = self.get_object()
+        serializer = CountryDestroySerializer(
+            country,
+            context={"request": request, "country": country}
         )
         if serializer.is_valid():
-            function.delete(
+            country.delete(
                 user=request.infoUser.get('id')
             )
             return Response(
-                FunctionDetailSerializer(
-                    function,
-                    context={"request": request, "function": function}
+                CountryDetailSerializer(
+                    country,
+                    context={"request": request, "country": country}
                 ).data,
                 status=status.HTTP_200_OK
             )
