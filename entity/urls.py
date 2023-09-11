@@ -18,6 +18,7 @@ router.register(r'function', ftviews.FunctionViewSet, basename='function')
 router.register(r'rank', rviews.RankViewSet, basename='rank')
 router.register(r'employee', eviews.EmployeeViewSet, basename='employee')
 router.register(r'country', lviews.CountryViewSet, basename='country')
+router.register(r'region', lviews.RegionViewSet, basename='region')
 
 urlpatterns = [
     path('', include(router.urls)),

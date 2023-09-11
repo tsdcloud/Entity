@@ -2,30 +2,27 @@ from django.db import DatabaseError
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.http import Http404
-from django.contrib.auth.models import Permission
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-
-from function.serializers import (
-    FunctionDetailSerializer,
-    FunctionDestroySerializer, FunctionRestoreSerializer,
-    FunctionAddPermissionSerializer
-)
 
 from common.permissions import IsDeactivate, IsActivate
 
 from location.serializers import (
     CountryStoreSerializer,
     CountryDetailSerializer,
-    CountryDestroySerializer
+    CountryDestroySerializer,
+    RegionStoreSerializer,
+    RegionDetailSerializer,
+    RegionDestroySerializer
 )
 from location.permissions import (
     IsAddLocation
 )
 from location.models import (
-    Country
+    Country,
+    Region
 )
 
 
@@ -37,9 +34,7 @@ class CountryViewSet(viewsets.ModelViewSet):
         if self.action in ['retrieve', 'update']:
             return CountryDetailSerializer
         elif self.action == 'destroy':
-            return FunctionDestroySerializer
-        elif self.action == 'restore':
-            return FunctionRestoreSerializer
+            return CountryDestroySerializer
         return CountryStoreSerializer
 
     def get_permissions(self):
@@ -72,14 +67,10 @@ class CountryViewSet(viewsets.ModelViewSet):
             data=request.data,
         )
         if serializer.is_valid():
-            try:
-                country = Country.create(
-                    name=serializer.validated_data['name'],
-                    user=request.infoUser.get('id')
-                )
-            except DatabaseError:
-                country = None
-
+            country = Country.create(
+                name=serializer.validated_data['name'],
+                user=request.infoUser.get('id')
+            )
             return Response(
                 CountryStoreSerializer(country).data,
                 status=status.HTTP_201_CREATED
@@ -117,7 +108,7 @@ class CountryViewSet(viewsets.ModelViewSet):
     def destroy(self, request, pk):
         country = self.get_object()
         serializer = CountryDestroySerializer(
-            country,
+            data=request.data,
             context={"request": request, "country": country}
         )
         if serializer.is_valid():
@@ -125,7 +116,7 @@ class CountryViewSet(viewsets.ModelViewSet):
                 user=request.infoUser.get('id')
             )
             return Response(
-                CountryDetailSerializer(
+                CountryDestroySerializer(
                     country,
                     context={"request": request, "country": country}
                 ).data,
@@ -137,48 +128,103 @@ class CountryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    @action(detail=True, methods=['post'])
-    def restore(self, request, pk):
-        function = self.get_object()
-        serializer = FunctionRestoreSerializer(
+
+class RegionViewSet(viewsets.ModelViewSet):
+    """ region controller """
+
+    def get_serializer_class(self):
+        """ define serializer """
+        if self.action in ['retrieve', 'update']:
+            return RegionDetailSerializer
+        elif self.action == 'destroy':
+            return RegionDestroySerializer
+        return CountryStoreSerializer
+
+    def get_permissions(self):
+        """ define permissions """
+        if self.action in ["create", "update", "destroy"]:
+            self.permission_classes = [IsAddLocation]
+        elif self.action in ["list", "retrieve"]:
+            self.permission_classes = [IsActivate]
+        else:
+            self.permission_classes = [IsDeactivate]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        """ define queryset """
+        queryset = Region.objects.filter(is_active=True)
+        return queryset
+
+    def get_object(self):
+        """ define object on detail url """
+        queryset = self.get_queryset()
+        try:
+            obj = get_object_or_404(queryset, id=self.kwargs["pk"])
+        except ValidationError:
+            raise Http404("detail not found")
+        return obj
+
+    def create(self, request):
+        """ add region """
+        serializer = RegionStoreSerializer(
             data=request.data,
-            context={"request": request, "function": function}
         )
         if serializer.is_valid():
-            function.restore(user=request.infoUser.get('id'))
+            country = Country.readByToken(
+                token=serializer.validated_data['country_id'])
+            region = Region.create(
+                name=serializer.validated_data['name'],
+                user=request.infoUser.get('id'),
+                country=country
+            )
             return Response(
-                    FunctionDetailSerializer(
-                        function,
-                        context={"request": request, "function": function}
-                    ).data,
-                    status=status.HTTP_200_OK
-                )
+                RegionStoreSerializer(region).data,
+                status=status.HTTP_201_CREATED
+            )
         else:
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    @action(detail=True, methods=['post'])
-    def permissions(self, request, pk):
-        function = self.get_object()
-        serializer = FunctionAddPermissionSerializer(
+    def update(self, request, pk):
+        region = self.get_object()
+        serializer = RegionDetailSerializer(
             data=request.data,
+            context={"request": request, "region": region}
         )
         if serializer.is_valid():
-            permissions = []
-            for codename in serializer.validated_data['permissions']:
-                permissions.append(
-                    Permission.objects.get(codename=codename)
-                )
-            function.add_permission(
-                user=request.infoUser.get('id'),
-                permissions=permissions
+            region.change(
+                name=serializer.validated_data['name'],
+                user=request.infoUser.get('id')
             )
             return Response(
-                FunctionDetailSerializer(
-                    function,
-                    context={"request": request, "function": function}
+                RegionDetailSerializer(
+                    region,
+                    context={"request": request, "region": region}
+                ).data,
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def destroy(self, request, pk):
+        region = self.get_object()
+        serializer = RegionDestroySerializer(
+            data=request.data,
+            context={"request": request, "region": region}
+        )
+        if serializer.is_valid():
+            region.delete(
+                user=request.infoUser.get('id')
+            )
+            return Response(
+                RegionDestroySerializer(
+                    region,
+                    context={"request": request, "region": region}
                 ).data,
                 status=status.HTTP_200_OK
             )

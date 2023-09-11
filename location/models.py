@@ -113,21 +113,15 @@ class Country(BaseUUIDModel):
         except DatabaseError:
             return None
 
-
-class HCountry(BaseHistoryModel):
-    country = models.ForeignKey(
-        Country,
-        on_delete=models.RESTRICT,
-        related_name="hcontries",
-        editable=False
-    )
-    name = models.CharField(_("Country name"), max_length=150)
-
-    def __str__(self):
-        return self.name
+    @classmethod
+    def readByToken(cls, token: str, is_change=False):
+        """ take an country from token"""
+        if is_change is False:
+            return cls.objects.get(id=token)
+        return cls.objects.select_for_update().get(id=token)
 
 
-class Region(models.Model):
+class Region(BaseUUIDModel):
     name = models.CharField(_("Region"), max_length=150)
     country = models.ForeignKey(
         Country,
@@ -143,8 +137,109 @@ class Region(models.Model):
         verbose_name = _("Region")
         verbose_name_plural = _("Regions")
 
+    def insertHistory(region: "Region", user: str, operation: int):
+        hregion = HRegion()
+        hregion.region = region
+        hregion.country = region.country
+        hregion.name = region.name
+        hregion.is_active = region.is_active
+        hregion.date = region.date
+        hregion.operation = operation
+        hregion.user = user
+        hregion.save()
 
-class Department(models.Model):
+    @staticmethod
+    def create(country: Country, name: str, user: str):
+        """ add region """
+        try:
+            region = Region.objects.get(country=country, name=name.upper())
+        except Region.DoesNotExist:
+            region = Region()
+            region.name = name.upper()
+            region.country = country
+        region.is_active = True
+
+        try:
+            with transaction.atomic():
+                region.save()
+
+                Region.insertHistory(region=region, operation=1, user=user)
+            return region
+        except DatabaseError:
+            return None
+
+    def change(self, name: str, user: str):
+        """ update region """
+        self.name = name.upper()
+
+        try:
+            with transaction.atomic():
+                self.save()
+                Region.insertHistory(region=self, user=user, operation=2)
+            return self
+        except DatabaseError:
+            return None
+
+    def delete(self, user: str):
+        """ delete region """
+        self.is_active = False
+
+        try:
+            with transaction.atomic():
+                self.save()
+
+                Region.insertHistory(region=self, operation=3, user=user)
+            return self
+        except DatabaseError:
+            return None
+
+    def restore(self, user: str):
+        """ restore region """
+        self.is_active = True
+
+        try:
+            with transaction.atomic():
+                self.save()
+                Region.insertHistory(region=self, operation=4, user=user)
+            return self
+        except DatabaseError:
+            return None
+
+    @classmethod
+    def readByToken(cls, token: str, is_change=False):
+        """ take an region from token"""
+        if is_change is False:
+            return cls.objects.get(id=token)
+        return cls.objects.select_for_update().get(id=token)
+
+
+class HCountry(BaseHistoryModel):
+    country = models.ForeignKey(
+        Country,
+        on_delete=models.RESTRICT,
+        related_name="hcontries",
+        editable=False
+    )
+    name = models.CharField(_("Country name"), max_length=150)
+
+
+class HRegion(BaseHistoryModel):
+    name = models.CharField(_("Region"), max_length=150)
+    country = models.ForeignKey(
+        Country,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="hregions"
+    )
+    region = models.ForeignKey(
+        Region,
+        db_index=True,
+        on_delete=models.RESTRICT,
+        related_name="hregions"
+    )
+
+
+class Department(BaseUUIDModel):
     name = models.CharField(_("Department"), max_length=150)
     region = models.ForeignKey(
         Region,
@@ -161,7 +256,7 @@ class Department(models.Model):
         verbose_name_plural = _("Departments")
 
 
-class Municipality(models.Model):
+class Municipality(BaseUUIDModel):
     name = models.CharField(_("Municipality"), max_length=150)
     department = models.ForeignKey(
         Department,
@@ -178,7 +273,7 @@ class Municipality(models.Model):
         verbose_name_plural = _("Municipalities")
 
 
-class Village(models.Model):
+class Village(BaseUUIDModel):
     name = models.CharField(_("Village"), max_length=150)
     department = models.ForeignKey(
         Municipality,
