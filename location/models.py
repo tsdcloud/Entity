@@ -76,6 +76,18 @@ class Country(BaseUUIDModel):
         except DatabaseError:
             return None
 
+    def change(self, name: str, user: str):
+        """ update country """
+        self.name = name.upper()
+
+        try:
+            with transaction.atomic():
+                self.save()
+                Country.insertHistory(country=self, user=user, operation=2)
+            return self
+        except DatabaseError:
+            return None
+
 
 class HCountry(BaseHistoryModel):
     country = models.ForeignKey(

@@ -19,7 +19,8 @@ from service.models import Service
 from common.permissions import IsDeactivate, IsActivate
 
 from location.serializers import (
-    CountryStoreSerializer
+    CountryStoreSerializer,
+    CountryDetailSerializer
 )
 from location.permissions import (
     IsAddLocation
@@ -35,7 +36,7 @@ class CountryViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         """ define serializer """
         if self.action in ['retrieve', 'update']:
-            return FunctionDetailSerializer
+            return CountryDetailSerializer
         elif self.action == 'destroy':
             return FunctionDestroySerializer
         elif self.action == 'restore':
@@ -44,7 +45,7 @@ class CountryViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """ define permissions """
-        if self.action in ["create"]:
+        if self.action in ["create", "update"]:
             self.permission_classes = [IsAddLocation]
         elif self.action == 'list':
             self.permission_classes = [IsActivate]
@@ -91,25 +92,20 @@ class CountryViewSet(viewsets.ModelViewSet):
             )
 
     def update(self, request, pk):
-        function = self.get_object()
-        serializer = FunctionDetailSerializer(
+        country = self.get_object()
+        serializer = CountryDetailSerializer(
             data=request.data,
-            context={"request": request, "function": function}
+            context={"request": request, "country": country}
         )
         if serializer.is_valid():
-            service = Service.readByToken(
-                token=serializer.validated_data['service_id'])
-            function.change(
+            country.change(
                 name=serializer.validated_data['name'],
-                power=serializer.validated_data['power'],
-                description=serializer.validated_data['description'],
-                service=service,
                 user=request.infoUser.get('id')
             )
             return Response(
-                FunctionDetailSerializer(
-                    function,
-                    context={"request": request, "function": function}
+                CountryDetailSerializer(
+                    country,
+                    context={"request": request, "country": country}
                 ).data,
                 status=status.HTTP_200_OK
             )
