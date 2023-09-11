@@ -47,7 +47,7 @@ class CountryViewSet(viewsets.ModelViewSet):
         """ define permissions """
         if self.action in ["create", "update"]:
             self.permission_classes = [IsAddLocation]
-        elif self.action == 'list':
+        elif self.action in ["list", "retrieve"]:
             self.permission_classes = [IsActivate]
         else:
             self.permission_classes = [IsDeactivate]
