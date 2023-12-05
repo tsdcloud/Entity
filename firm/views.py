@@ -110,11 +110,10 @@ class FirmViewSet(viewsets.ModelViewSet):
                             'unique_identifier_number'],
                         user=request.infoUser.get('uuid')
                     )
-                    b = Branch()
                     Branch.create(
                         label="principale",
                         firm=firm,
-                        origin=b,
+                        origin=Branch(),
                         is_principal=True,
                         user=request.infoUser.get('uuid')
                     )

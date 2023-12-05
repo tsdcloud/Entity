@@ -1,8 +1,9 @@
 from django.db import models
-from django.db import DatabaseError, transaction
+from simple_history.models import HistoricalRecords
 from common.models import BaseUUIDModel
-from common.constants import H_OPERATION_CHOICE
 from . constants import TAX_SYSTEM, TYPE_PERSON
+import json
+from datetime import datetime
 
 # Create your models here.
 
@@ -36,6 +37,7 @@ class Firm(BaseUUIDModel):
     )
     logo = models.TextField()
     type_person = models.IntegerField(choices=TYPE_PERSON)
+    history = HistoricalRecords()
 
     class Meta:
         """ defined how the data will be shouted into the database """
@@ -44,26 +46,6 @@ class Firm(BaseUUIDModel):
     def __str__(self):
         """ name in the administration """
         return "(%s %s)" % (self.business_name, self.acronym)
-
-    @staticmethod
-    def insertHistory(firm: "Firm", user: str, operation: int):
-        hfirm = HFirm()
-        hfirm.firm = firm
-        hfirm.business_name = firm.business_name
-        hfirm.acronym = firm.acronym
-        hfirm.unique_identifier_number = firm.unique_identifier_number
-        hfirm.principal_activity = firm.principal_activity
-        hfirm.regime = firm.regime
-        hfirm.tax_reporting_center = firm.tax_reporting_center
-        hfirm.trade_register = firm.trade_register
-        hfirm.logo = firm.logo
-        hfirm.type_person = firm.type_person
-        hfirm.is_active = firm.is_active
-        hfirm.date = firm.date
-        hfirm.operation = operation
-        hfirm.user = user
-
-        hfirm.save()
 
     @staticmethod
     def create(
@@ -94,14 +76,13 @@ class Firm(BaseUUIDModel):
         firm.trade_register = trade_register.upper()
         firm.logo = logo
         firm.type_person = type_person
-
-        try:
-            with transaction.atomic():
-                firm.save()
-                Firm.insertHistory(firm=firm, user=user, operation=1)
-            return firm
-        except DatabaseError:
-            return None
+        firm._change_reason = json.dumps({
+            "reason": "Add a new company",
+            "user": user
+        })
+        firm._history_date = datetime.now()
+        firm.save()
+        return firm
 
     def change(
         self,
@@ -127,71 +108,33 @@ class Firm(BaseUUIDModel):
         self.logo = logo
         self.type_person = type_person
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Firm.insertHistory(firm=self, user=user, operation=2)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Update a company",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def delete(self, user: str):
         """ delete entity """
         self.is_active = False
-
-        try:
-            with transaction.atomic():
-                self.save()
-                Firm.insertHistory(firm=self, user=user, operation=3)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Delete a company",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def restore(self, user: str):
         """ active entity previously disabled """
         self.is_active = True
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Firm.insertHistory(firm=self, user=user, operation=4)
-            return self
-        except DatabaseError:
-            return None
-
-    @classmethod
-    def readByToken(cls, token: str, is_change=False):
-        """ take an firm from token"""
-        if is_change is False:
-            return cls.objects.get(id=token)
-        return cls.objects.select_for_update().get(id=token)
-
-
-class HFirm(models.Model):
-    """ firm history """
-    firm = models.ForeignKey(
-        Firm, on_delete=models.RESTRICT, related_name="hfirm", editable=False)
-    business_name = models.CharField(
-        verbose_name="Business Name",
-        unique=True, max_length=100, editable=False)
-    acronym = models.CharField(max_length=20, editable=False)
-    unique_identifier_number = models.CharField(
-        verbose_name="Unique Identifier Number",
-        unique=True, max_length=14, editable=False)
-    principal_activity = models.CharField(
-        verbose_name="Principal Activity",
-        max_length=150, editable=False)
-    regime = models.IntegerField(choices=TAX_SYSTEM, editable=False)
-    tax_reporting_center = models.CharField(
-        verbose_name="Tax Reporting Center",
-        max_length=50, editable=False)
-    trade_register = models.CharField(
-        verbose_name="Trade Register",
-        unique=True, max_length=18, editable=False)
-    logo = models.TextField(editable=False)
-    type_person = models.IntegerField(choices=TYPE_PERSON, editable=False)
-    is_active = models.BooleanField(default=True, editable=False)
-    date = models.DateTimeField(editable=False)
-    operation = models.IntegerField(choices=H_OPERATION_CHOICE, editable=False)
-    user = models.CharField(editable=False, max_length=1000)
-    dateop = models.DateTimeField(auto_now_add=True, editable=False)
+        self._change_reason = json.dumps({
+            "reason": "Restore a company",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self

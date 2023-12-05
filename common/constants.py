@@ -34,3 +34,11 @@ PARTICULAR_PORTEE = [
     (1, 'ALL'),
     (2, 'FIXE')
 ]
+
+PARTICULAR_PORTEE_KEY = [
+    (1, 'COUNTRY'),
+    (2, 'REGION'),
+    (3, 'DEPARTMENT'),
+    (4, 'MUNICIPALITY'),
+    (5, 'VILLAGE')
+]

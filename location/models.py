@@ -1,34 +1,37 @@
 from django.utils.translation import ugettext_lazy as _
-from django.db import DatabaseError, transaction
+from simple_history.models import HistoricalRecords
 from django.db import models
 from firm.models import Firm
 from function.models import Function
-from common.constants import PARTICULAR_PORTEE
+from common.constants import PARTICULAR_PORTEE, PARTICULAR_PORTEE_KEY
+import json
+from datetime import datetime
 
 # Create your models here.
-from common.models import BaseUUIDModel, BaseHistoryModel
+from common.models import BaseUUIDModel
 
 
-class PORTEE(models.Model):
+class Portee(BaseUUIDModel):
     country = models.IntegerField(choices=PARTICULAR_PORTEE)
     region = models.IntegerField(choices=PARTICULAR_PORTEE)
     departement = models.IntegerField(choices=PARTICULAR_PORTEE)
     municipality = models.IntegerField(choices=PARTICULAR_PORTEE)
     village = models.IntegerField(choices=PARTICULAR_PORTEE)
     function = models.ForeignKey(Function, on_delete=models.RESTRICT)
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.function.name
 
     class Meta:
-        verbose_name = _("Country")
-        verbose_name_plural = _("Countries")
+        ordering = []
 
 
-class Link(models.Model):
-    key = models.IntegerField(choices=PARTICULAR_PORTEE)
+class Link(BaseUUIDModel):
+    key = models.IntegerField(choices=PARTICULAR_PORTEE_KEY)
     value = models.CharField(max_length=1000)
     function = models.ForeignKey(Function, on_delete=models.RESTRICT)
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.function.name
@@ -40,22 +43,13 @@ class Link(models.Model):
 
 class Country(BaseUUIDModel):
     name = models.CharField(_("Country name"), max_length=150)
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
 
     class Meta:
         ordering = ["name"]
-
-    def insertHistory(country: "Country", user: str, operation: int):
-        hcountry = HCountry()
-        hcountry.country = country
-        hcountry.name = country.name
-        hcountry.is_active = country.is_active
-        hcountry.date = country.date
-        hcountry.operation = operation
-        hcountry.user = user
-        hcountry.save()
 
     @staticmethod
     def create(name: str, user: str):
@@ -67,58 +61,48 @@ class Country(BaseUUIDModel):
             country.name = name.upper()
         country.is_active = True
 
-        try:
-            with transaction.atomic():
-                country.save()
-
-                Country.insertHistory(country=country, operation=1, user=user)
-            return country
-        except DatabaseError:
-            return None
+        country._change_reason = json.dumps({
+            "reason": "Add a new country",
+            "user": user
+        })
+        country._history_date = datetime.now()
+        country.save()
+        return country
 
     def change(self, name: str, user: str):
         """ update country """
         self.name = name.upper()
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Country.insertHistory(country=self, user=user, operation=2)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Update country",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def delete(self, user: str):
         """ delete country """
         self.is_active = False
 
-        try:
-            with transaction.atomic():
-                self.save()
-
-                Country.insertHistory(country=self, operation=3, user=user)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Delete a country",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def restore(self, user: str):
         """ restore country """
         self.is_active = True
-
-        try:
-            with transaction.atomic():
-                self.save()
-                Country.insertHistory(country=self, operation=4, user=user)
-            return self
-        except DatabaseError:
-            return None
-
-    @classmethod
-    def readByToken(cls, token: str, is_change=False):
-        """ take an country from token"""
-        if is_change is False:
-            return cls.objects.get(id=token)
-        return cls.objects.select_for_update().get(id=token)
+        self._change_reason = json.dumps({
+            "reason": "Restore a country",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
 
 class Region(BaseUUIDModel):
@@ -129,6 +113,7 @@ class Region(BaseUUIDModel):
         on_delete=models.RESTRICT,
         related_name="regions"
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
@@ -137,18 +122,6 @@ class Region(BaseUUIDModel):
         verbose_name = _("Region")
         verbose_name_plural = _("Regions")
 
-    def insertHistory(region: "Region", user: str, operation: int):
-        hregion = HRegion()
-        hregion.region = region
-        hregion.country = region.country
-        hregion.name = region.name
-        hregion.is_active = region.is_active
-        hregion.date = region.date
-        hregion.operation = operation
-        hregion.user = user
-        hregion.save()
-
-    @staticmethod
     def create(country: Country, name: str, user: str):
         """ add region """
         try:
@@ -159,84 +132,49 @@ class Region(BaseUUIDModel):
             region.country = country
         region.is_active = True
 
-        try:
-            with transaction.atomic():
-                region.save()
-
-                Region.insertHistory(region=region, operation=1, user=user)
-            return region
-        except DatabaseError:
-            return None
+        region._change_reason = json.dumps({
+            "reason": "Add a new region",
+            "user": user
+        })
+        region._history_date = datetime.now()
+        region.save()
+        return region
 
     def change(self, name: str, user: str):
         """ update region """
         self.name = name.upper()
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Region.insertHistory(region=self, user=user, operation=2)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Update region",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def delete(self, user: str):
         """ delete region """
         self.is_active = False
 
-        try:
-            with transaction.atomic():
-                self.save()
-
-                Region.insertHistory(region=self, operation=3, user=user)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Delete a region",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def restore(self, user: str):
         """ restore region """
         self.is_active = True
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Region.insertHistory(region=self, operation=4, user=user)
-            return self
-        except DatabaseError:
-            return None
-
-    @classmethod
-    def readByToken(cls, token: str, is_change=False):
-        """ take an region from token"""
-        if is_change is False:
-            return cls.objects.get(id=token)
-        return cls.objects.select_for_update().get(id=token)
-
-
-class HCountry(BaseHistoryModel):
-    country = models.ForeignKey(
-        Country,
-        on_delete=models.RESTRICT,
-        related_name="hcontries",
-        editable=False
-    )
-    name = models.CharField(_("Country name"), max_length=150)
-
-
-class HRegion(BaseHistoryModel):
-    name = models.CharField(_("Region"), max_length=150)
-    country = models.ForeignKey(
-        Country,
-        db_index=True,
-        on_delete=models.RESTRICT,
-        related_name="hregions"
-    )
-    region = models.ForeignKey(
-        Region,
-        db_index=True,
-        on_delete=models.RESTRICT,
-        related_name="hregions"
-    )
+        self._change_reason = json.dumps({
+            "reason": "Restore a region",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
 
 class Department(BaseUUIDModel):
@@ -247,6 +185,7 @@ class Department(BaseUUIDModel):
         on_delete=models.RESTRICT,
         related_name="departments"
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
@@ -254,6 +193,62 @@ class Department(BaseUUIDModel):
     class Meta:
         verbose_name = _("Department")
         verbose_name_plural = _("Departments")
+
+    def create(region: Region, name: str, user: str):
+        """ add department """
+        try:
+            department = Department.objects.get(
+                region=region, name=name.upper()
+            )
+        except Department.DoesNotExist:
+            department = Department()
+            department.name = name.upper()
+            department.region = region
+        department.is_active = True
+
+        department._change_reason = json.dumps({
+            "reason": "Add a new department",
+            "user": user
+        })
+        department._history_date = datetime.now()
+        department.save()
+        return department
+
+    def change(self, name: str, user: str):
+        """ update department """
+        self.name = name.upper()
+
+        self._change_reason = json.dumps({
+            "reason": "Change a department",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def delete(self, user: str):
+        """ delete department """
+        self.is_active = False
+
+        self._change_reason = json.dumps({
+            "reason": "Delete a department",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def restore(self, user: str):
+        """ restore department """
+        self.is_active = True
+
+        self._change_reason = json.dumps({
+            "reason": "Restore a department",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
 
 class Municipality(BaseUUIDModel):
@@ -264,6 +259,7 @@ class Municipality(BaseUUIDModel):
         on_delete=models.RESTRICT,
         related_name="municipalities"
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
@@ -272,15 +268,73 @@ class Municipality(BaseUUIDModel):
         verbose_name = _("Municipality")
         verbose_name_plural = _("Municipalities")
 
+    @staticmethod
+    def create(department: Department, name: str, user: str):
+        """ add municipality """
+        try:
+            municipality = Municipality.objects.get(
+                department=department, name=name.upper()
+            )
+        except Municipality.DoesNotExist:
+            municipality = Municipality()
+            municipality.name = name.upper()
+            municipality.department = department
+        municipality.is_active = True
+
+        municipality._change_reason = json.dumps({
+            "reason": "Add a new municipality",
+            "user": user
+        })
+        municipality._history_date = datetime.now()
+        municipality.save()
+        return municipality
+
+    def change(self, name: str, user: str):
+        """ update municipality """
+        self.name = name.upper()
+
+        self._change_reason = json.dumps({
+            "reason": "Update a municipality",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def delete(self, user: str):
+        """ delete municipality """
+        self.is_active = False
+
+        self._change_reason = json.dumps({
+            "reason": "Delete a municipality",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def restore(self, user: str):
+        """ restore municipality """
+        self.is_active = True
+
+        self._change_reason = json.dumps({
+            "reason": "Restore a municipality",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
 
 class Village(BaseUUIDModel):
     name = models.CharField(_("Village"), max_length=150)
-    department = models.ForeignKey(
+    municipality = models.ForeignKey(
         Municipality,
         db_index=True,
         on_delete=models.RESTRICT,
         related_name="villages"
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
@@ -288,6 +342,63 @@ class Village(BaseUUIDModel):
     class Meta:
         verbose_name = _("Village")
         verbose_name_plural = _("Villages")
+
+    @staticmethod
+    def create(municipality: Municipality, name: str, user: str):
+        """ add village """
+        try:
+            village = Village.objects.get(
+                municipality=municipality, name=name.upper()
+            )
+        except Village.DoesNotExist:
+            village = Village()
+            village.name = name.upper()
+            village.municipality = municipality
+        village.is_active = True
+
+        village._change_reason = json.dumps({
+            "reason": "Add a new village",
+            "user": user
+        })
+        village._history_date = datetime.now()
+        village.save()
+        return village
+
+    def change(self, name: str, user: str):
+        """ update village """
+        self.name = name.upper()
+
+        self._change_reason = json.dumps({
+            "reason": "Update a village",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def delete(self, user: str):
+        """ delete village """
+        self.is_active = False
+
+        self._change_reason = json.dumps({
+            "reason": "Add a new country",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def restore(self, user: str):
+        """ restore village """
+        self.is_active = True
+
+        self._change_reason = json.dumps({
+            "reason": "Restore a village",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
 
 class Location(BaseUUIDModel):
@@ -304,6 +415,67 @@ class Location(BaseUUIDModel):
         on_delete=models.RESTRICT,
         related_name="locations"
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
+
+    @staticmethod
+    def create(firm: Firm, village: Village, name: str, user: str):
+        """ add location """
+        try:
+            location = Location.objects.get(
+                firm=firm,
+                village=village,
+                name=name.upper()
+            )
+        except Location.DoesNotExist:
+            location = Location()
+            location.name = name.upper()
+            location.firm = firm
+            location.village = village
+        location.is_active = True
+
+        location._change_reason = json.dumps({
+            "reason": "Add a new location",
+            "user": user
+        })
+        location._history_date = datetime.now()
+        location.save()
+        return location
+
+    def change(self, name: str, user: str):
+        """ update location """
+        self.name = name.upper()
+
+        self._change_reason = json.dumps({
+            "reason": "Update a location",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def delete(self, user: str):
+        """ delete location """
+        self.is_active = False
+
+        self._change_reason = json.dumps({
+            "reason": "Delete a location",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
+
+    def restore(self, user: str):
+        """ restore location """
+        self.is_active = True
+
+        self._change_reason = json.dumps({
+            "reason": "Restore a country",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self

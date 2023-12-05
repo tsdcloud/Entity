@@ -1,6 +1,8 @@
 from django.db import models
-from django.db import DatabaseError, transaction
-from common.models import BaseHistoryModel, BaseUUIDModel
+from common.models import BaseUUIDModel
+from simple_history.models import HistoricalRecords
+import json
+from datetime import datetime
 
 # Create your models here.
 from firm.models import Firm
@@ -14,21 +16,10 @@ class Rank(BaseUUIDModel):
         on_delete=models.RESTRICT,
         related_name="ranks"
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.label
-
-    def insertHistory(rank: "Rank", user: str, operation: int):
-        hrank = HRank()
-        hrank.rank = rank
-        hrank.label = rank.label
-        hrank.power = rank.power
-        hrank.firm = rank.firm
-        hrank.is_active = rank.is_active
-        hrank.date = rank.date
-        hrank.operation = operation
-        hrank.user = user
-        hrank.save()
 
     @staticmethod
     def create(
@@ -50,15 +41,13 @@ class Rank(BaseUUIDModel):
         rank.firm = firm
         rank.is_active = True
 
-        try:
-            with transaction.atomic():
-                rank.save()
-
-                Rank.insertHistory(
-                    rank=rank, operation=1, user=user)
-            return rank
-        except DatabaseError:
-            return None
+        rank._change_reason = json.dumps({
+            "reason": "Add a new rank",
+            "user": user
+        })
+        rank._history_date = datetime.now()
+        rank.save()
+        return rank
 
     def change(
         self,
@@ -71,51 +60,34 @@ class Rank(BaseUUIDModel):
         self.power = power
         self.user = user
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Rank.insertHistory(rank=self, user=user, operation=2)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Update rank",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def delete(self, user: str):
         """ delete rank """
         self.is_active = False
 
-        try:
-            with transaction.atomic():
-                self.save()
-
-                Rank.insertHistory(rank=self, operation=3, user=user)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Delete rank",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def restore(self, user: str):
         """ restore rank """
         self.is_active = True
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Rank.insertHistory(rank=self, operation=4, user=user)
-            return self
-        except DatabaseError:
-            return None
-
-    @classmethod
-    def readByToken(cls, token: str, is_change=False):
-        """ take an rank from token"""
-        if is_change is False:
-            return cls.objects.get(id=token)
-        return cls.objects.select_for_update().get(id=token)
-
-
-class HRank(BaseHistoryModel):
-    rank = models.ForeignKey(
-        Rank,
-        on_delete=models.RESTRICT, related_name="hranks")
-    label = models.CharField(max_length=100)
-    power = models.IntegerField()
-    firm = models.ForeignKey(Firm, on_delete=models.RESTRICT)
+        self._change_reason = json.dumps({
+            "reason": "Restore rank",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self

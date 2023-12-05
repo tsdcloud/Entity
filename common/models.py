@@ -11,6 +11,22 @@ class BaseUUIDModel(models.Model):
         primary_key=True, default=uuid.uuid4, db_index=True, editable=False)
     is_active = models.BooleanField(default=True)
     date = models.DateTimeField(auto_now_add=True, blank=True, editable=False)
+    __history_date = None
+
+    @property
+    def _history_date(self):
+        return self.__history_date
+
+    @_history_date.setter
+    def _history_date(self, value):
+        self.__history_date = value
+
+    @classmethod
+    def readByToken(cls, token: str, is_change=False):
+        """ take an firm from token"""
+        if is_change is False:
+            return cls.objects.get(id=token)
+        return cls.objects.select_for_update().get(id=token)
 
     class Meta:
         abstract = True

@@ -15,7 +15,7 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     id = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     tax_reporting_center = serializers.CharField(
-        max_length=50, write_only=True)
+        max_length=50)
     trade_register = serializers.CharField(
         max_length=18)
 
@@ -97,6 +97,12 @@ class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
         max_length=1000, required=False, read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     date = serializers.DateTimeField(read_only=True)
+    business_name = serializers.CharField()
+    unique_identifier_number = serializers.CharField()
+    tax_reporting_center = serializers.CharField(
+        max_length=50)
+    trade_register = serializers.CharField(
+        max_length=18)
 
     class Meta:
         """ attributs serialized """
@@ -125,6 +131,10 @@ class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
             if f != firm:
                 raise serializers.ValidationError(
                     'unique_identifier_number already exists'
+                )
+            elif len(value) != 14:
+                raise serializers.ValidationError(
+                    'wrong unique_identifier_number size'
                 )
             else:
                 return value

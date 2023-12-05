@@ -1,12 +1,14 @@
 from django.db import models
 from django.contrib.auth.models import Permission
-from django.db import DatabaseError, transaction
 from function.models import Function
 from rank.models import Rank
 from firm.models import Firm
-from common.models import BaseUUIDModel, BaseHistoryModel
+from location.models import (
+    Location, Country, Region, Department, Municipality, Village, Portee, Link)
+from common.models import BaseUUIDModel
+from simple_history.models import HistoricalRecords
 from common.constants import EMPLOYEE_CATEGORIE
-import datetime
+from datetime import datetime
 import http.client
 import json
 from common.constants import ENDPOINT_USER
@@ -19,24 +21,10 @@ class Employee(BaseUUIDModel):
     rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
     functions = models.ManyToManyField(Function)
     permissions = models.ManyToManyField(Permission)
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.matricule
-
-    def insertHistory(employee: "Employee", user: str, operation: int):
-        hemployee = HEmployee()
-        hemployee.employee = employee
-        hemployee.user1 = employee.user
-        hemployee.matricule = employee.matricule
-        hemployee.category = employee.category
-        hemployee.rank = employee.rank
-        hemployee.is_active = employee.is_active
-        hemployee.date = employee.date
-        hemployee.operation = operation
-        hemployee.user = user
-        hemployee.save()
-        hemployee.functions.set(employee.functions.all())
-        hemployee.permissions.set(employee.permissions.all())
 
     @staticmethod
     def create(
@@ -56,7 +44,7 @@ class Employee(BaseUUIDModel):
         except Employee.DoesNotExist:
             employee = Employee()
             employee.user = user1
-            fin = datetime.datetime.now().strftime(".%m.%Y")
+            fin = datetime.now().strftime(".%m.%Y")
             matricule = rank.firm.acronym + str(
                 101 + len(
                     Employee.objects.filter(
@@ -70,17 +58,14 @@ class Employee(BaseUUIDModel):
         employee.rank = rank
         employee.user = user1
 
-        try:
-            with transaction.atomic():
-                employee.save()
-                employee.functions.set([function])
-                employee.save()
-
-                Employee.insertHistory(
-                    employee=employee, operation=1, user=user)
-                return employee
-        except DatabaseError:
-            return None
+        employee._change_reason = json.dumps({
+            "reason": "Add a new employee",
+            "user": user
+        })
+        employee._history_date = datetime.now()
+        employee.functions.set([function])
+        employee.save()
+        return employee
 
     def change(
         self,
@@ -95,38 +80,37 @@ class Employee(BaseUUIDModel):
         self.functions.add(function)
         self.user = user
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Employee.insertHistory(employee=self, user=user, operation=2)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Update employee",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def delete(self, user: str):
         """ delete employee """
         self.is_active = False
 
-        try:
-            with transaction.atomic():
-                self.save()
-
-                Employee.insertHistory(employee=self, operation=3, user=user)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Delete employee",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def restore(self, user: str):
         """ restore employee """
         self.is_active = True
 
-        try:
-            with transaction.atomic():
-                self.save()
-                Employee.insertHistory(employee=self, operation=4, user=user)
-            return self
-        except DatabaseError:
-            return None
+        self._change_reason = json.dumps({
+            "reason": "Restore employee",
+            "user": user
+        })
+        self._history_date = datetime.now()
+        self.save()
+        return self
 
     def decryptuser(self, authorization: str):
         data = Employee.get_user(user=self.user, authorization=authorization)
@@ -146,13 +130,6 @@ class Employee(BaseUUIDModel):
         dat = response.read()
         data = json.loads(dat)
         return data if data.get('id', 0) != 0 else None
-
-    @classmethod
-    def readByToken(cls, token: str, is_change=False):
-        """ take an employee from token"""
-        if is_change is False:
-            return cls.objects.get(id=token)
-        return cls.objects.select_for_update().get(id=token)
 
     @staticmethod
     def firms_visibles(user: str, is_superuser=False):
@@ -234,16 +211,171 @@ class Employee(BaseUUIDModel):
                     employees.append(item)
             return employees
 
+    @staticmethod
+    def countries_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Country.objects.all()
+        else:
+            functions = Employee.functions_visibles(
+                user=user, is_superuser=False)
+            portee_max = Portee.objects.filter(
+                function__in=functions,
+                is_active=True,
+                country='ALL'
+            )
+            if len(portee_max) != 0:
+                countries = Country.objects.filter(is_active=True)
+            else:
+                countries = []
+                links = Link.objects.filter(
+                    key=1,
+                    function__in=functions,
+                    is_active=True
+                )
+                for item in links:
+                    country = Country.objects.get(id=item.value)
+                    if country not in countries and country.is_active is True:
+                        countries.append(country)
+            return countries
 
-class HEmployee(BaseHistoryModel):
-    employee = models.ForeignKey(
-        Employee,
-        on_delete=models.RESTRICT,
-        related_name="hemployees"
-    )
-    matricule = models.CharField(max_length=50)
-    user1 = models.CharField(max_length=1000)
-    category = models.IntegerField(choices=EMPLOYEE_CATEGORIE)
-    rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
-    functions = models.ManyToManyField(Function, null=True)
-    permissions = models.ManyToManyField(Permission)
+    @staticmethod
+    def regions_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Region.objects.all()
+        else:
+            functions = Employee.functions_visibles(
+                user=user, is_superuser=False)
+            portee_max = Portee.objects.filter(
+                function__in=functions,
+                is_active=True,
+                region='ALL'
+            )
+            countries = Employee.countries_visibles(
+                user=user, is_superuser=False)
+            if len(portee_max) != 0:
+                regions = Region.objects.filter(
+                    country__in=countries,
+                    is_active=True
+                )
+            else:
+                regions = []
+                links = Link.objects.filter(
+                    key=2,
+                    function__in=functions,
+                    is_active=True
+                )
+                for item in links:
+                    region = Region.objects.get(id=item.value)
+                    if region not in regions and region.is_active is True and region.country in countries:
+                        regions.append(region)
+            return regions
+
+    @staticmethod
+    def departments_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Department.objects.all()
+        else:
+            functions = Employee.functions_visibles(
+                user=user, is_superuser=False)
+            portee_max = Portee.objects.filter(
+                function__in=functions,
+                is_active=True,
+                department='ALL'
+            )
+            regions = Employee.regions_visibles(
+                user=user, is_superuser=False)
+            if len(portee_max) != 0:
+                departments = Department.objects.filter(
+                    region__in=regions,
+                    is_active=True
+                )
+            else:
+                departments = []
+                links = Link.objects.filter(
+                    key=3,
+                    function__in=functions,
+                    is_active=True
+                )
+                for item in links:
+                    department = Department.objects.get(id=item.value)
+                    if department not in departments and department.is_active is True and department.region in regions:
+                        departments.append(department)
+            return departments
+
+    @staticmethod
+    def municipalities_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Municipality.objects.all()
+        else:
+            functions = Employee.functions_visibles(
+                user=user, is_superuser=False)
+            portee_max = Portee.objects.filter(
+                function__in=functions,
+                is_active=True,
+                municipality='ALL'
+            )
+            departments = Employee.departments_visibles(
+                user=user, is_superuser=False)
+            if len(portee_max) != 0:
+                municipalities = Municipality.objects.filter(
+                    department__in=departments,
+                    is_active=True
+                )
+            else:
+                municipalities = []
+                links = Link.objects.filter(
+                    key=4,
+                    function__in=functions,
+                    is_active=True
+                )
+                for item in links:
+                    municipality = Municipality.objects.get(id=item.value)
+                    if municipality not in municipalities and municipality.is_active is True and municipality.department in departments:
+                        municipalities.append(municipality)
+            return municipalities
+
+    @staticmethod
+    def villages_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Village.objects.all()
+        else:
+            functions = Employee.functions_visibles(
+                user=user, is_superuser=False)
+            portee_max = Portee.objects.filter(
+                function__in=functions,
+                is_active=True,
+                village='ALL'
+            )
+            municipalities = Employee.municipalities_visibles(
+                user=user, is_superuser=False)
+            if len(portee_max) != 0:
+                villages = Village.objects.filter(
+                    municipality__in=municipalities,
+                    is_active=True
+                )
+            else:
+                villages = []
+                links = Link.objects.filter(
+                    key=5,
+                    function__in=functions,
+                    is_active=True
+                )
+                for item in links:
+                    village = Village.objects.get(id=item.value)
+                    if village not in villages and village.is_active is True and village.municipality in municipalities:
+                        villages.append(village)
+            return villages
+
+    @staticmethod
+    def sites_visibles(user: str, is_superuser=False):
+        if is_superuser is True:
+            return Location.objects.all()
+        else:
+            villages = Employee.villages_visibles(
+                user=user, is_superuser=False)
+            locations = []
+            for item in villages:
+                for item1 in item.locations.filter(is_active=True):
+                    if item1 not in locations:
+                        locations.append(item1)
+            return locations

@@ -19,6 +19,10 @@ router.register(r'rank', rviews.RankViewSet, basename='rank')
 router.register(r'employee', eviews.EmployeeViewSet, basename='employee')
 router.register(r'country', lviews.CountryViewSet, basename='country')
 router.register(r'region', lviews.RegionViewSet, basename='region')
+router.register(r'department', lviews.DepartmentViewSet, basename='department')
+router.register(r'municipality', lviews.MunicipalityViewSet, basename='municipality')
+router.register(r'village', lviews.VillageViewSet, basename='village')
+router.register(r'location', lviews.LocationViewSet, basename='location')
 
 urlpatterns = [
     path('', include(router.urls)),
