@@ -12,4 +12,4 @@ TYPE_PERSON = [
 
 ACCEPT_IMAGE = ["jpg", "jpeg", "png", "JPG", "JPEG", "PNG"]
 
-MAX_IMAGE_SIZE = 1000000
+MAX_IMAGE_SIZE = 10000000

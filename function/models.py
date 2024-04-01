@@ -20,6 +20,17 @@ class Function(BaseUUIDModel):
     permissions = models.ManyToManyField(Permission)
     history = HistoricalRecords()
 
+    class Meta:
+        permissions = [
+            #port hub
+            ("add_global_setting", "defined the number of kilograms of tolerance"),
+            ("view_global_setting", "read the number of kilograms of tolerance"),
+            ("add_pesee_container", "load container weighing file"),
+            ("view_pesee_container", "view container weighing"),
+            ("add_declare_container", "add container declaration"),
+            ("view_declare_container", "view container declaration"),
+        ]
+
     def __str__(self):
         return self.name
 

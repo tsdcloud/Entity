@@ -20,7 +20,7 @@ class Employee(BaseUUIDModel):
     category = models.IntegerField(choices=EMPLOYEE_CATEGORIE)
     rank = models.ForeignKey(Rank, on_delete=models.RESTRICT)
     functions = models.ManyToManyField(Function)
-    permissions = models.ManyToManyField(Permission)
+    permissions = models.ManyToManyField(Permission, null=True)
     history = HistoricalRecords()
 
     def __str__(self):
@@ -36,11 +36,17 @@ class Employee(BaseUUIDModel):
     ):
         """ add employee """
         try:
+            employee = Employee.objects.get(user=user1)
+            employee.is_active = False
+            employee._history_date = datetime.now()
+            employee.save()
             employee = Employee.objects.get(
                 user=user1,
                 functions__service__branch__firm=function.service.branch.firm)
             employee.is_active = True
             employee.functions.clear()
+            employee._history_date = datetime.now()
+            employee.save()
         except Employee.DoesNotExist:
             employee = Employee()
             employee.user = user1
@@ -63,6 +69,7 @@ class Employee(BaseUUIDModel):
             "user": user
         })
         employee._history_date = datetime.now()
+        employee.save()
         employee.functions.set([function])
         employee.save()
         return employee
@@ -379,3 +386,35 @@ class Employee(BaseUUIDModel):
                     if item1 not in locations:
                         locations.append(item1)
             return locations
+    
+    @staticmethod
+    def permissions_visibles(user: str, is_superuser=False):
+        data = []
+        if is_superuser is True:
+            perms = Permission.objects.all()
+        else:
+            try:
+                employee = Employee.objects.get(user=user, is_active=True)
+            except Employee.DoesNotExist:
+                return []
+            perms = employee.permissions.all()
+            functions = employee.functions.all()
+            for function in functions:
+                permissions = function.permissions.all()
+                for permission in permissions:
+                    data.append(permission.codename)
+        for permission in perms:
+            data.append(permission.codename)
+        return data
+
+    @staticmethod
+    def my_entity(user: str, is_superuser=False):
+        try:
+            employee = Employee.objects.get(user=user, is_active=True)
+            return employee.rank.firm
+        except Employee.DoesNotExist:
+            if is_superuser:
+                entity = Firm.objects.get(business_name="ENTREPRISE 1")
+                return entity
+            else:
+                return None

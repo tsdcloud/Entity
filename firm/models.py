@@ -33,7 +33,7 @@ class Firm(BaseUUIDModel):
     trade_register = models.CharField(
         verbose_name="Trade Register",
         unique=True,
-        max_length=18
+        max_length=50
     )
     logo = models.TextField()
     type_person = models.IntegerField(choices=TYPE_PERSON)

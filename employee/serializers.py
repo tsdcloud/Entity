@@ -52,7 +52,11 @@ class EmployeeStoreSerializer(serializers.HyperlinkedModelSerializer):
             res.append({
                 "id": item.id,
                 "name": item.name,
-                "power": item.power
+                "power": item.power,
+                "entity":{
+                    "id": item.service.branch.firm.id,
+                    "business_name": item.service.branch.firm.business_name
+                }
             })
         return res
 
@@ -230,3 +234,40 @@ class EmployeeDetailSerializer(serializers.HyperlinkedModelSerializer):
                 code=-2
             )
         return data
+
+
+class EmployeePermissionsSerializer(serializers.HyperlinkedModelSerializer):
+    """ logical validataion for update employee """
+    id = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+    permissions = serializers.SerializerMethodField(read_only=True)
+    entity = serializers.SerializerMethodField()
+
+    class Meta:
+        """ attributs serialized """
+        model = Employee
+        fields = [
+            'id',
+            'is_active',
+            'permissions',
+            'entity'
+        ]
+
+    def get_permissions(self, instance):
+        return Employee.permissions_visibles(
+            user=self.context['request'].infoUser['uuid'],
+            is_superuser=self.context['request'].infoUser['user']['is_superuser']
+        )
+    
+    def get_entity(self, instance):
+        firm =  Employee.my_entity(
+            user=self.context['request'].infoUser['uuid'],
+            is_superuser=self.context['request'].infoUser['user']['is_superuser']
+        )
+        if firm is None:
+            return None
+        return {
+            "id": firm.id,
+            "business_name": firm.business_name
+        }
+        

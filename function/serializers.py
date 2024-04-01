@@ -204,7 +204,7 @@ class FunctionAddPermissionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         """ attributs serialized """
         model = Function
-        fields = ["id", "perimissions"]
+        fields = ["id", "permissions"]
 
     def validate_permissions(self, data):
         """ check logical validation """

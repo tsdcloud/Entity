@@ -8,14 +8,14 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from employee.serializers import (
-    EmployeeStoreSerializer, EmployeeDetailSerializer
+    EmployeeStoreSerializer, EmployeeDetailSerializer, EmployeePermissionsSerializer
 )
 
 from employee.models import Employee
 from rank.models import Rank
 from function.models import Function
 
-from common.permissions import IsDeactivate
+from common.permissions import IsDeactivate, IsAuthenticated
 from employee.permissions import (
     IsAddEmployee, IsChangeEmployee, IsDestroyEmployee,
     IsRestoreEmployee, IsViewAllEmployee, IsViewDetailEmployee
@@ -45,6 +45,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             self.permission_classes = [IsDestroyEmployee]
         elif self.action == 'restore':
             self.permission_classes = [IsRestoreEmployee]
+        elif self.action == 'permissions':
+            self.permission_classes = [IsAuthenticated]
         else:
             self.permission_classes = [IsDeactivate]
         return super().get_permissions()
@@ -164,3 +166,15 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             ).data,
             status=status.HTTP_200_OK
         )
+    
+    @action(detail=False, methods=['get'])
+    def permissions(self, request, pk=None):
+        employee = Employee()
+        return Response(
+            EmployeePermissionsSerializer(
+                employee,
+                context={"request": request}
+            ).data,
+            status=status.HTTP_200_OK
+        )
+

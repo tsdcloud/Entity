@@ -17,7 +17,7 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
     tax_reporting_center = serializers.CharField(
         max_length=50)
     trade_register = serializers.CharField(
-        max_length=18)
+        max_length=50)
 
     class Meta:
         """ attributs serialized """
@@ -60,8 +60,6 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_trade_register(self, value):
         """ check validity of trade_register """
-        if len(value) != 18:
-            raise serializers.ValidationError('wrong trade_register size')
         try:
             Firm.objects.get(trade_register=value.upper())
             raise serializers.ValidationError('trade_register already exists')
@@ -80,14 +78,14 @@ class FirmStoreSerializer(serializers.HyperlinkedModelSerializer):
         try:
             image = base64.b64decode(value)
             img = Image.open(io.BytesIO(image))
-            if img.format.lower() in ACCEPT_IMAGE:
-                width, height = img.size
-                if width * height > MAX_IMAGE_SIZE:
-                    raise serializers.ValidationError('image too large')
-            else:
-                raise serializers.ValidationError('not valid extension')
         except Exception:
             raise serializers.ValidationError('logo is not valid base64 image')
+        if img.format.lower() in ACCEPT_IMAGE:
+            width, height = img.size
+            if width * height > MAX_IMAGE_SIZE:
+                raise serializers.ValidationError('image too large')
+        else:
+            raise serializers.ValidationError('not valid extension')
         return value
 
 
@@ -102,7 +100,7 @@ class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
     tax_reporting_center = serializers.CharField(
         max_length=50)
     trade_register = serializers.CharField(
-        max_length=18)
+        max_length=50)
 
     class Meta:
         """ attributs serialized """
@@ -168,12 +166,12 @@ class FirmDetailSerializer(serializers.HyperlinkedModelSerializer):
         try:
             image = base64.b64decode(value)
             img = Image.open(io.BytesIO(image))
-            if img.format.lower() in ACCEPT_IMAGE:
-                width, height = img.size
-                if width * height > MAX_IMAGE_SIZE:
-                    raise serializers.ValidationError('image too large')
-            else:
-                raise serializers.ValidationError('not valid extension')
         except Exception:
             raise serializers.ValidationError('logo is not valid base64 image')
+        if img.format.lower() in ACCEPT_IMAGE:
+            width, height = img.size
+            if width * height > MAX_IMAGE_SIZE:
+                raise serializers.ValidationError('image too large')
+        else:
+            raise serializers.ValidationError('not valid extension')
         return value
